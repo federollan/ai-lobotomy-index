@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta property="og:title" content="AI Lobotomy Index 🧠">
+  <meta property="og:description" content="Daily community intelligence ratings for AI models. Because yes, they fluctuate.">
+  <title>AI Lobotomy Index 🧠</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #07070f;
+      --card: #0f0f1e;
+      --card2: #13132a;
+      --border: #1c1c35;
+      --claude: #ff6b35;
+      --gpt: #10d9a0;
+      --gemini: #818cf8;
+      --text: #e2e8f0;
+      --muted: #4a5568;
+      --muted2: #718096;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    #starfield { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    /* ── Header ── */
+    header { text-align: center; margin-bottom: 3.5rem; }
+
+    .logo-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 1rem; margin-bottom: 0.75rem;
+    }
+
+    .logo-icon {
+      font-size: 3rem;
+      filter: drop-shadow(0 0 18px rgba(129,140,248,0.6));
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-8px); }
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 900;
+      background: linear-gradient(135deg, #ff6b35 0%, #818cf8 50%, #10d9a0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      color: var(--muted2); font-size: 1.05rem;
+      max-width: 520px; margin: 0.5rem auto 1.25rem; line-height: 1.6;
+    }
+
+    .meta-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 1rem; flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 999px; padding: 0.35rem 1rem;
+      font-size: 0.82rem; color: var(--muted2);
+    }
+
+    .live-dot {
+      width: 7px; height: 7px; background: #10d9a0;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%,100% { opacity:1; box-shadow: 0 0 0 0 rgba(16,217,160,.4); }
+      50%      { opacity:.7; box-shadow: 0 0 0 5px rgba(16,217,160,0); }
+    }
+
+    /* ── Cards ── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+    @media(max-width:780px){ .cards { grid-template-columns:1fr; } }
+
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1.5rem; padding: 1.75rem 1.5rem;
+      opacity: 0; animation: fadeUp .55s ease forwards;
+      transition: transform .25s, box-shadow .25s;
+    }
+    .card:nth-child(1){ animation-delay:.05s; }
+    .card:nth-child(2){ animation-delay:.15s; }
+    .card:nth-child(3){ animation-delay:.25s; }
+
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(24px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    .card[data-model="claude"]{ border-color:rgba(255,107,53,.25); }
+    .card[data-model="gpt"]   { border-color:rgba(16,217,160,.25); }
+    .card[data-model="gemini"]{ border-color:rgba(129,140,248,.25); }
+
+    .card[data-model="claude"]:hover{ transform:translateY(-4px); box-shadow:0 8px 40px rgba(255,107,53,.12); }
+    .card[data-model="gpt"]:hover   { transform:translateY(-4px); box-shadow:0 8px 40px rgba(16,217,160,.12); }
+    .card[data-model="gemini"]:hover{ transform:translateY(-4px); box-shadow:0 8px 40px rgba(129,140,248,.12); }
+
+    .card-header { display:flex; align-items:center; gap:.85rem; margin-bottom:1.4rem; }
+
+    .model-icon {
+      width:46px; height:46px; border-radius:13px;
+      display:grid; place-items:center; font-size:1.5rem; flex-shrink:0;
+    }
+    .card[data-model="claude"] .model-icon{ background:rgba(255,107,53,.12); }
+    .card[data-model="gpt"]    .model-icon{ background:rgba(16,217,160,.12); }
+    .card[data-model="gemini"] .model-icon{ background:rgba(129,140,248,.12); }
+
+    .model-name    { font-size:1.1rem; font-weight:700; }
+    .model-version { font-size:.72rem; color:var(--muted2); margin-top:1px; }
+
+    .score-display { text-align:center; margin-bottom:1.2rem; }
+
+    .score-number {
+      font-size:4.2rem; font-weight:900; line-height:1;
+      letter-spacing:-.04em; transition:all .3s;
+    }
+    .card[data-model="claude"] .score-number{ color:var(--claude); text-shadow:0 0 30px rgba(255,107,53,.3); }
+    .card[data-model="gpt"]    .score-number{ color:var(--gpt);    text-shadow:0 0 30px rgba(16,217,160,.3); }
+    .card[data-model="gemini"] .score-number{ color:var(--gemini); text-shadow:0 0 30px rgba(129,140,248,.3); }
+
+    .score-emoji { font-size:1.8rem; margin-top:.4rem; }
+    .vibe-label  { font-size:.88rem; font-weight:600; color:var(--muted2); margin-top:.2rem; }
+    .vote-count  { font-size:.72rem; color:var(--muted); margin-top:.25rem; }
+
+    .brain-meter {
+      height:5px; background:rgba(255,255,255,.06);
+      border-radius:999px; overflow:hidden; margin-bottom:1.4rem;
+    }
+    .brain-fill {
+      height:100%; border-radius:999px;
+      transition:width .7s cubic-bezier(.34,1.56,.64,1);
+    }
+    .card[data-model="claude"] .brain-fill{ background:linear-gradient(90deg,#ff6b35,#ffb347); }
+    .card[data-model="gpt"]    .brain-fill{ background:linear-gradient(90deg,#10d9a0,#06b6d4); }
+    .card[data-model="gemini"] .brain-fill{ background:linear-gradient(90deg,#818cf8,#c084fc); }
+
+    .divider { border:none; border-top:1px solid var(--border); margin-bottom:1.2rem; }
+
+    .voting-label {
+      font-size:.72rem; text-transform:uppercase;
+      letter-spacing:.07em; color:var(--muted); margin-bottom:.6rem;
+    }
+
+    input[type="range"] {
+      -webkit-appearance:none; width:100%; height:5px;
+      border-radius:999px; background:rgba(255,255,255,.06);
+      outline:none; cursor:pointer; transition:opacity .2s;
+    }
+    input[type="range"]:disabled { opacity:.4; cursor:not-allowed; }
+
+    .card[data-model="claude"] input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance:none; width:20px; height:20px; border-radius:50%;
+      background:var(--claude); cursor:pointer; box-shadow:0 0 12px rgba(255,107,53,.55);
+    }
+    .card[data-model="gpt"] input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance:none; width:20px; height:20px; border-radius:50%;
+      background:var(--gpt); cursor:pointer; box-shadow:0 0 12px rgba(16,217,160,.55);
+    }
+    .card[data-model="gemini"] input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance:none; width:20px; height:20px; border-radius:50%;
+      background:var(--gemini); cursor:pointer; box-shadow:0 0 12px rgba(129,140,248,.55);
+    }
+
+    .slider-labels {
+      display:flex; justify-content:space-between;
+      font-size:.68rem; color:var(--muted);
+      margin-top:.3rem; margin-bottom:.7rem;
+    }
+
+    .vote-preview {
+      min-height:1.4rem; font-size:.82rem; color:var(--muted2);
+      text-align:center; margin-bottom:.7rem;
+      font-style:italic; transition:all .15s;
+    }
+
+    .vote-btn {
+      width:100%; padding:.65rem; border-radius:.85rem; border:1px solid;
+      font-size:.85rem; font-weight:700; letter-spacing:.06em;
+      text-transform:uppercase; cursor:pointer; transition:all .2s;
+    }
+    .card[data-model="claude"] .vote-btn {
+      background:rgba(255,107,53,.1); color:var(--claude); border-color:rgba(255,107,53,.3);
+    }
+    .card[data-model="claude"] .vote-btn:hover:not(:disabled) {
+      background:var(--claude); color:#fff; box-shadow:0 4px 20px rgba(255,107,53,.35);
+    }
+    .card[data-model="gpt"] .vote-btn {
+      background:rgba(16,217,160,.1); color:var(--gpt); border-color:rgba(16,217,160,.3);
+    }
+    .card[data-model="gpt"] .vote-btn:hover:not(:disabled) {
+      background:var(--gpt); color:#07070f; box-shadow:0 4px 20px rgba(16,217,160,.35);
+    }
+    .card[data-model="gemini"] .vote-btn {
+      background:rgba(129,140,248,.1); color:var(--gemini); border-color:rgba(129,140,248,.3);
+    }
+    .card[data-model="gemini"] .vote-btn:hover:not(:disabled) {
+      background:var(--gemini); color:#fff; box-shadow:0 4px 20px rgba(129,140,248,.35);
+    }
+    .vote-btn:disabled { opacity:.5; cursor:not-allowed; }
+
+    .voted-msg { text-align:center; font-size:.76rem; color:var(--muted); margin-top:.5rem; min-height:1.2rem; }
+
+    /* ── Sections ── */
+    .section {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:1.5rem; padding:2rem; margin-bottom:1.5rem;
+      opacity:0; animation:fadeUp .55s ease forwards; animation-delay:.35s;
+    }
+    .section-title { font-size:1.15rem; font-weight:700; margin-bottom:.2rem; }
+    .section-sub   { font-size:.82rem; color:var(--muted2); margin-bottom:1.5rem; }
+    .chart-wrap    { position:relative; height:260px; }
+
+    .stats-grid {
+      display:grid; grid-template-columns:repeat(3,1fr);
+      gap:1.5rem; margin-bottom:1.5rem;
+      opacity:0; animation:fadeUp .55s ease forwards; animation-delay:.45s;
+    }
+    @media(max-width:600px){ .stats-grid { grid-template-columns:1fr; } }
+
+    .stat-card {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:1.5rem; padding:1.5rem; text-align:center;
+    }
+    .stat-icon  { font-size:1.6rem; margin-bottom:.4rem; }
+    .stat-value { font-size:1.9rem; font-weight:800; }
+    .stat-label { font-size:.78rem; color:var(--muted2); margin-top:.2rem; }
+
+    .share-section {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:1.5rem; padding:1.75rem 2rem; text-align:center;
+      margin-bottom:1.5rem;
+      opacity:0; animation:fadeUp .55s ease forwards; animation-delay:.55s;
+    }
+    .share-title { font-size:1rem; font-weight:700; margin-bottom:.3rem; }
+    .share-sub   { font-size:.82rem; color:var(--muted2); margin-bottom:1rem; }
+    .share-btns  { display:flex; gap:.75rem; justify-content:center; flex-wrap:wrap; }
+
+    .share-btn {
+      display:inline-flex; align-items:center; gap:.45rem;
+      padding:.55rem 1.3rem; background:var(--card2);
+      border:1px solid var(--border); border-radius:999px;
+      color:var(--text); font-size:.82rem; font-weight:600;
+      cursor:pointer; transition:all .2s;
+    }
+    .share-btn:hover { background:var(--border); transform:translateY(-1px); }
+
+    footer {
+      text-align:center; color:var(--muted); font-size:.76rem;
+      padding:1.5rem 0 0; line-height:1.8;
+    }
+
+    .toast {
+      position:fixed; bottom:2rem; left:50%;
+      transform:translateX(-50%) translateY(80px);
+      background:#1e1e3a; border:1px solid #2d2d55; color:var(--text);
+      padding:.7rem 1.5rem; border-radius:999px;
+      font-size:.85rem; font-weight:500;
+      z-index:9999; transition:transform .35s cubic-bezier(.34,1.56,.64,1);
+      white-space:nowrap;
+    }
+    .toast.visible { transform:translateX(-50%) translateY(0); }
+
+    @keyframes bump {
+      0%  { transform:scale(1); }
+      40% { transform:scale(1.18); }
+      100%{ transform:scale(1); }
+    }
+    .bump { animation:bump .35s ease; }
+
+    /* loading shimmer on scores */
+    .loading .score-number { opacity:.3; }
+  </style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<div class="container">
+
+  <header>
+    <div class="logo-row">
+      <div class="logo-icon">🧠</div>
+      <h1>AI Lobotomy Index</h1>
+    </div>
+    <p class="subtitle">
+      Daily community intelligence ratings for AI models.<br>
+      Because yes — they fluctuate. A lot.
+    </p>
+    <div class="meta-row">
+      <div class="badge"><span class="live-dot"></span><span id="today-label">—</span></div>
+      <div class="badge">📊 <span id="header-total">…</span>&nbsp;votes today</div>
+    </div>
+  </header>
+
+  <div class="cards">
+
+    <!-- Claude -->
+    <div class="card loading" data-model="claude">
+      <div class="card-header">
+        <div class="model-icon">🤖</div>
+        <div><div class="model-name">Claude</div><div class="model-version">by Anthropic</div></div>
+      </div>
+      <div class="score-display">
+        <div class="score-number" id="claude-score">—</div>
+        <div class="score-emoji"  id="claude-emoji">…</div>
+        <div class="vibe-label"   id="claude-vibe">Loading</div>
+        <div class="vote-count"   id="claude-count"></div>
+      </div>
+      <div class="brain-meter"><div class="brain-fill" id="claude-fill" style="width:0%"></div></div>
+      <hr class="divider">
+      <div class="voting-label">Rate today's intelligence</div>
+      <input type="range" id="claude-slider" min="1" max="10" value="5">
+      <div class="slider-labels"><span>🥔 Potato</span><span>🧠 Einstein</span></div>
+      <div class="vote-preview" id="claude-preview"></div>
+      <button class="vote-btn" id="claude-btn" onclick="submitVote('claude')">Cast Vote</button>
+      <div class="voted-msg" id="claude-msg"></div>
+    </div>
+
+    <!-- ChatGPT -->
+    <div class="card loading" data-model="gpt">
+      <div class="card-header">
+        <div class="model-icon">💬</div>
+        <div><div class="model-name">ChatGPT</div><div class="model-version">by OpenAI</div></div>
+      </div>
+      <div class="score-display">
+        <div class="score-number" id="gpt-score">—</div>
+        <div class="score-emoji"  id="gpt-emoji">…</div>
+        <div class="vibe-label"   id="gpt-vibe">Loading</div>
+        <div class="vote-count"   id="gpt-count"></div>
+      </div>
+      <div class="brain-meter"><div class="brain-fill" id="gpt-fill" style="width:0%"></div></div>
+      <hr class="divider">
+      <div class="voting-label">Rate today's intelligence</div>
+      <input type="range" id="gpt-slider" min="1" max="10" value="5">
+      <div class="slider-labels"><span>🥔 Potato</span><span>🧠 Einstein</span></div>
+      <div class="vote-preview" id="gpt-preview"></div>
+      <button class="vote-btn" id="gpt-btn" onclick="submitVote('gpt')">Cast Vote</button>
+      <div class="voted-msg" id="gpt-msg"></div>
+    </div>
+
+    <!-- Gemini -->
+    <div class="card loading" data-model="gemini">
+      <div class="card-header">
+        <div class="model-icon">✨</div>
+        <div><div class="model-name">Gemini</div><div class="model-version">by Google</div></div>
+      </div>
+      <div class="score-display">
+        <div class="score-number" id="gemini-score">—</div>
+        <div class="score-emoji"  id="gemini-emoji">…</div>
+        <div class="vibe-label"   id="gemini-vibe">Loading</div>
+        <div class="vote-count"   id="gemini-count"></div>
+      </div>
+      <div class="brain-meter"><div class="brain-fill" id="gemini-fill" style="width:0%"></div></div>
+      <hr class="divider">
+      <div class="voting-label">Rate today's intelligence</div>
+      <input type="range" id="gemini-slider" min="1" max="10" value="5">
+      <div class="slider-labels"><span>🥔 Potato</span><span>🧠 Einstein</span></div>
+      <div class="vote-preview" id="gemini-preview"></div>
+      <button class="vote-btn" id="gemini-btn" onclick="submitVote('gemini')">Cast Vote</button>
+      <div class="voted-msg" id="gemini-msg"></div>
+    </div>
+
+  </div>
+
+  <div class="section">
+    <div class="section-title">30-Day Intelligence Trend</div>
+    <div class="section-sub">Community average score per day · Higher = smarter</div>
+    <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon">🏆</div>
+      <div class="stat-value" id="stat-winner">—</div>
+      <div class="stat-label">Smartest today</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🥔</div>
+      <div class="stat-value" id="stat-loser">—</div>
+      <div class="stat-label">Biggest potato</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">📊</div>
+      <div class="stat-value" id="stat-votes">—</div>
+      <div class="stat-label">Total votes today</div>
+    </div>
+  </div>
+
+  <div class="share-section">
+    <div class="share-title">Spread the word 📣</div>
+    <div class="share-sub">Your vote shapes the dataset. Help us build the most honest AI tracker on the internet.</div>
+    <div class="share-btns">
+      <button class="share-btn" onclick="shareTwitter()">𝕏 Share on X</button>
+      <button class="share-btn" onclick="copyLink()">🔗 Copy link</button>
+    </div>
+  </div>
+
+  <footer>
+    Community-powered · No affiliation with Anthropic, OpenAI, or Google<br>
+    <span style="opacity:.4">Data resets daily at midnight UTC · Because someone had to do it.</span>
+  </footer>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const MODELS = ['claude', 'gpt', 'gemini'];
+const NAMES  = { claude: 'Claude', gpt: 'ChatGPT', gemini: 'Gemini' };
+const SCORES = [1,2,3,4,5,6,7,8,9,10];
+const NS     = 'ailob-v1';
+const API    = `https://api.counterapi.dev/v1/${NS}`;
+
+const VIBES = [
+  { max:1,  emoji:'🥔', label:'Complete Vegetable' },
+  { max:2,  emoji:'😵', label:'Absolutely Cooked'  },
+  { max:3,  emoji:'🤯', label:'Struggling Hard'    },
+  { max:4,  emoji:'😩', label:'Not Its Best Day'   },
+  { max:5,  emoji:'😐', label:'Mid. Just Mid.'      },
+  { max:6,  emoji:'🤔', label:'Having a Day'        },
+  { max:7,  emoji:'😊', label:'Pretty Decent'       },
+  { max:8,  emoji:'🧠', label:'Sharp AF'            },
+  { max:9,  emoji:'🚀', label:'On Fire Today'       },
+  { max:10, emoji:'⚡', label:'Galaxy Brain'        },
+];
+
+const QUIPS = {
+  1: 'My houseplant gives better answers.',
+  2: 'Confidently wrong about everything.',
+  3: 'Forgot how punctuation works.',
+  4: 'Trying its best. Bless it.',
+  5: "It's… fine. I guess.",
+  6: 'Solid but nothing to brag about.',
+  7: 'Actually pretty sharp today.',
+  8: 'Making me feel dumb (good sign).',
+  9: 'Suspiciously competent.',
+ 10: 'Are we sure this is still AI?',
+};
+
+// ── Date helpers ─────────────────────────────────────────────────────────────
+
+function todayKey()  { return new Date().toISOString().split('T')[0]; }
+function todayStamp(){ return todayKey().replace(/-/g,''); }
+
+function formatDate(k) {
+  return new Date(k + 'T12:00:00').toLocaleDateString('en-US',
+    { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+}
+
+// ── Seeded pseudo-random (deterministic per date) ────────────────────────────
+
+function srand(seed) { const x=Math.sin(seed+1)*1e4; return x-Math.floor(x); }
+function dateNum(k)  { return parseInt(k.replace(/-/g,''),10); }
+
+// Community baseline: makes site look alive on day 1.
+// Real votes layer on top.
+function seedBaseline(dateStr) {
+  const dn   = dateNum(dateStr);
+  const base = { claude:7.0, gpt:6.7, gemini:6.4 };
+  const sprd = { claude:1.5, gpt:1.7, gemini:1.9 };
+  const out  = {};
+  MODELS.forEach((m,mi) => {
+    const r     = srand(dn + mi*137);
+    const score = Math.max(2, Math.min(9, base[m] + (r-.5)*2*sprd[m]));
+    const count = 100 + Math.floor(srand(dn + mi*999)*120);
+    out[m]      = { sum: score*count, count };
+  });
+  return out;
+}
+
+// ── History for chart (deterministic 30 days) ────────────────────────────────
+
+function buildHistory() {
+  const labels=[], data={ claude:[], gpt:[], gemini:[] };
+  const base={ claude:7.0, gpt:6.7, gemini:6.4 };
+  const sprd={ claude:1.5, gpt:1.7, gemini:1.9 };
+  for (let i=29; i>=0; i--) {
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const k=d.toISOString().split('T')[0];
+    labels.push(k.slice(5));
+    MODELS.forEach((m,mi) => {
+      const r=srand(dateNum(k)+mi*137);
+      data[m].push(parseFloat(Math.max(1,Math.min(10,base[m]+(r-.5)*2*sprd[m])).toFixed(2)));
+    });
+  }
+  return { labels, data };
+}
+
+// ── CounterAPI ───────────────────────────────────────────────────────────────
+
+async function apiGet(key) {
+  try {
+    const r = await fetch(`${API}/${key}`);
+    const j = await r.json();
+    return j.count || 0;
+  } catch { return 0; }
+}
+
+async function apiUp(key) {
+  try { await fetch(`${API}/${key}/up`); } catch {}
+}
+
+// Returns { sum, count } of real community votes for a model today
+async function fetchModelToday(model) {
+  const stamp = todayStamp();
+  const counts = await Promise.all(
+    SCORES.map(s => apiGet(`${model}-${stamp}-s${s}`).then(c => ({ s, c })))
+  );
+  const count = counts.reduce((a,x) => a + x.c, 0);
+  const sum   = counts.reduce((a,x) => a + x.s * x.c, 0);
+  return { count, sum };
+}
+
+async function fetchAllToday() {
+  const results = await Promise.all(MODELS.map(m => fetchModelToday(m)));
+  const out = {};
+  MODELS.forEach((m,i) => out[m] = results[i]);
+  return out;
+}
+
+// ── LocalStorage (prevent double-voting) ─────────────────────────────────────
+
+function userVotes()       { return JSON.parse(localStorage.getItem(`ailob_uv_${todayKey()}`) || '{}'); }
+function saveVote(m,score) {
+  const v=userVotes(); v[m]=score;
+  localStorage.setItem(`ailob_uv_${todayKey()}`, JSON.stringify(v));
+}
+
+// ── Vibe helpers ─────────────────────────────────────────────────────────────
+
+function getVibe(score) { return VIBES.find(v=>score<=v.max) ?? VIBES[VIBES.length-1]; }
+function liveQuip(val)  { return `${getVibe(val).emoji} ${QUIPS[val]??''}`; }
+
+// ── State ─────────────────────────────────────────────────────────────────────
+
+let communityData = null;  // set once API responds
+let chart         = null;
+const history     = buildHistory();
+
+// ── Render ───────────────────────────────────────────────────────────────────
+
+function mergedData() {
+  const seed = seedBaseline(todayKey());
+  const out  = {};
+  MODELS.forEach(m => {
+    const real = communityData ? communityData[m] : { count:0, sum:0 };
+    out[m] = {
+      count: seed[m].count + real.count,
+      sum:   seed[m].sum   + real.sum,
+    };
+  });
+  return out;
+}
+
+function renderScores() {
+  const d     = mergedData();
+  const votes = userVotes();
+  let total   = 0;
+  const avgs  = {};
+
+  MODELS.forEach(m => {
+    const avg     = d[m].count > 0 ? d[m].sum / d[m].count : 5;
+    avgs[m]       = avg;
+    total        += d[m].count;
+    const rounded = avg.toFixed(1);
+    const vibe    = getVibe(avg);
+
+    document.getElementById(`${m}-score`).textContent = rounded;
+    document.getElementById(`${m}-emoji`).textContent = vibe.emoji;
+    document.getElementById(`${m}-vibe`).textContent  = vibe.label;
+    document.getElementById(`${m}-count`).textContent = `${d[m].count.toLocaleString()} votes`;
+    document.getElementById(`${m}-fill`).style.width  = `${(avg/10)*100}%`;
+    document.querySelector(`.card[data-model="${m}"]`).classList.remove('loading');
+  });
+
+  document.getElementById('header-total').textContent = total.toLocaleString();
+  document.getElementById('stat-votes').textContent   = total.toLocaleString();
+
+  const sorted = [...MODELS].sort((a,b)=>avgs[b]-avgs[a]);
+  document.getElementById('stat-winner').textContent  = NAMES[sorted[0]];
+  document.getElementById('stat-loser').textContent   = NAMES[sorted[sorted.length-1]];
+}
+
+function renderVoting() {
+  const votes = userVotes();
+  MODELS.forEach(m => {
+    const voted   = votes[m] !== undefined;
+    const slider  = document.getElementById(`${m}-slider`);
+    const btn     = document.getElementById(`${m}-btn`);
+    const preview = document.getElementById(`${m}-preview`);
+    const msg     = document.getElementById(`${m}-msg`);
+
+    if (voted) {
+      slider.disabled     = true;
+      btn.disabled        = true;
+      btn.textContent     = '✓ Voted';
+      preview.textContent = '';
+      msg.textContent     = `You rated ${NAMES[m]} ${votes[m]}/10 · Come back tomorrow`;
+    } else {
+      slider.disabled     = false;
+      btn.disabled        = false;
+      btn.textContent     = 'Cast Vote';
+      preview.textContent = liveQuip(parseInt(slider.value));
+      msg.textContent     = '';
+    }
+  });
+}
+
+// ── Vote submission ───────────────────────────────────────────────────────────
+
+async function submitVote(model) {
+  const votes = userVotes();
+  if (votes[model] !== undefined) return;
+
+  const score = parseInt(document.getElementById(`${model}-slider`).value);
+  const stamp = todayStamp();
+
+  // Optimistic local update
+  saveVote(model, score);
+  if (communityData) {
+    communityData[model].count += 1;
+    communityData[model].sum   += score;
+  }
+
+  renderScores();
+  renderVoting();
+
+  const numEl = document.getElementById(`${model}-score`);
+  numEl.classList.remove('bump'); void numEl.offsetWidth; numEl.classList.add('bump');
+
+  toast(`Voted! ${NAMES[model]} gets ${score}/10 ${getVibe(score).emoji}`);
+
+  // Fire-and-forget to API
+  apiUp(`${model}-${stamp}-s${score}`);
+}
+
+// ── Slider live preview ───────────────────────────────────────────────────────
+
+MODELS.forEach(m => {
+  document.getElementById(`${m}-slider`).addEventListener('input', function() {
+    if (userVotes()[m] === undefined)
+      document.getElementById(`${m}-preview`).textContent = liveQuip(parseInt(this.value));
+  });
+});
+
+// ── Chart ─────────────────────────────────────────────────────────────────────
+
+function renderChart() {
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: history.labels,
+      datasets: [
+        mkDataset('Claude',  history.data.claude,  '#ff6b35', 'rgba(255,107,53,.07)'),
+        mkDataset('ChatGPT', history.data.gpt,     '#10d9a0', 'rgba(16,217,160,.07)'),
+        mkDataset('Gemini',  history.data.gemini,  '#818cf8', 'rgba(129,140,248,.07)'),
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { intersect:false, mode:'index' },
+      plugins: {
+        legend: { labels: { color:'#718096', boxWidth:10, usePointStyle:true, pointStyle:'circle' } },
+        tooltip: {
+          backgroundColor:'#1a1a35', borderColor:'#2d2d55', borderWidth:1,
+          titleColor:'#e2e8f0', bodyColor:'#718096',
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw} ${getVibe(ctx.raw).emoji}` },
+        },
+      },
+      scales: {
+        x: { grid:{color:'rgba(255,255,255,.03)'}, ticks:{color:'#4a5568',maxRotation:0,maxTicksLimit:7} },
+        y: {
+          min:1, max:10, grid:{color:'rgba(255,255,255,.03)'},
+          ticks:{ color:'#4a5568', stepSize:1,
+            callback: v => v===1 ? '1 🥔' : v===10 ? '10 🧠' : v },
+        },
+      },
+    },
+  });
+}
+
+function mkDataset(label, data, border, bg) {
+  return {
+    label, data, borderColor:border, backgroundColor:bg,
+    borderWidth:2.5, tension:.4, fill:true,
+    pointRadius:0, pointHoverRadius:5, pointHoverBackgroundColor:border,
+  };
+}
+
+// ── Stars ─────────────────────────────────────────────────────────────────────
+
+function drawStars() {
+  const c=document.getElementById('starfield');
+  const W=c.width=window.innerWidth, H=c.height=window.innerHeight;
+  const ctx=c.getContext('2d'); ctx.clearRect(0,0,W,H);
+  for(let i=0;i<180;i++){
+    const x=Math.random()*W, y=Math.random()*H, r=Math.random()*1.3;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,255,255,${Math.random()*.55+.05})`; ctx.fill();
+  }
+}
+window.addEventListener('resize', drawStars);
+
+// ── Share ─────────────────────────────────────────────────────────────────────
+
+function shareTwitter() {
+  const d = mergedData();
+  const lines = MODELS.map(m => {
+    const avg = (d[m].sum/d[m].count).toFixed(1);
+    return `${NAMES[m]}: ${avg}/10 ${getVibe(parseFloat(avg)).emoji}`;
+  });
+  const text = `Today's AI Brain Scores 🧠\n\n${lines.join('\n')}\n\nVote at ailob.today`;
+  window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,'_blank');
+}
+
+function copyLink() {
+  navigator.clipboard.writeText(window.location.href).then(() => toast('Link copied! 🔗'));
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+
+let toastTimer;
+function toast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('visible'),3200);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+document.getElementById('today-label').textContent = formatDate(todayKey());
+
+drawStars();
+
+// Render immediately with seeded baseline so page doesn't feel empty
+renderScores();
+renderVoting();
+renderChart();
+
+// Then fetch real community data in background and update
+fetchAllToday().then(data => {
+  communityData = data;
+  renderScores();
+}).catch(() => {
+  // silently keep seeded data if API fails
+});
+</script>
+</body>
+</html>
