@@ -1,0 +1,29 @@
+[
+  {
+    "tema": "tamaño del país",
+    "titulo": "¿Cuál es más grande?",
+    "dato_argentina": {"valor": "2,78 M km²", "valor_num": 2.78, "fuente": "IGN Argentina", "anio": "2023"},
+    "dato_australia": {"valor": "7,69 M km²", "valor_num": 7.69, "fuente": "Geoscience Australia", "anio": "2023"},
+    "insight": "Australia es casi 3 veces más grande, pero tiene poco más de la mitad de habitantes que Argentina.",
+    "caption": "Australia tiene casi el triple de territorio que Argentina y la mitad de su población. ¿El resultado? Un país con demanda enorme de profesionales y estudiantes internacionales. Si estás pensando en estudiar allá, escribinos y te asesoramos con tu assessment.",
+    "hashtags": ["#estudiarenaustralia", "#argentinosenaustralia", "#australia", "#argentina", "#estudiantesinternacionales", "#visaaustralia", "#migraraustralia", "#datocurioso", "#estudiarafuera", "#assessmentaustralia"]
+  },
+  {
+    "tema": "población",
+    "titulo": "Población: AR vs AUS",
+    "dato_argentina": {"valor": "46,2 M", "valor_num": 46.2, "fuente": "INDEC, Censo 2022", "anio": "2022"},
+    "dato_australia": {"valor": "26,6 M", "valor_num": 26.6, "fuente": "ABS", "anio": "2023"},
+    "insight": "Con la mitad de habitantes, Australia necesita atraer talento: por eso su sistema de visas premia a los profesionales calificados.",
+    "caption": "Australia tiene poco más de la mitad de la población argentina y una economía que demanda profesionales. Por eso existen las visas de skilled migration. ¿Querés saber si tu título califica? Consultanos por tu skills assessment.",
+    "hashtags": ["#estudiarenaustralia", "#argentinosenaustralia", "#skilledmigration", "#australia", "#argentina", "#visaaustralia", "#migraraustralia", "#skillsassessment", "#estudiarafuera", "#trabajarenaustralia"]
+  },
+  {
+    "tema": "trabajo con visa de estudiante",
+    "titulo": "Trabajar mientras estudiás",
+    "dato_argentina": {"valor": "Sin límite legal", "valor_num": null, "fuente": "LCT Argentina", "anio": "2024"},
+    "dato_australia": {"valor": "48 h por quincena", "valor_num": null, "fuente": "Dept. of Home Affairs", "anio": "2023"},
+    "insight": "La visa de estudiante australiana permite trabajar 48 horas por quincena durante el cursado, y sin límite en vacaciones.",
+    "caption": "Sí, con la visa de estudiante en Australia podés trabajar legalmente: 48 horas por quincena en época de clases y sin límite en vacaciones. Es una de las razones por las que tantos argentinos eligen Australia. ¿Dudas con tu visa o assessment? Escribinos.",
+    "hashtags": ["#estudiarenaustralia", "#visadeestudiante", "#argentinosenaustralia", "#trabajarenaustralia", "#australia", "#studentvisa", "#migraraustralia", "#estudiarafuera", "#assessmentaustralia", "#vivirenaustralia"]
+  }
+]
