@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta property="og:title" content="Teoría de juegos en 3D 🎮">
+  <meta property="og:description" content="El dilema del prisionero, jugá contra estrategias misteriosas y mirá evolucionar la cooperación en un torneo 3D.">
+  <title>🎮 Teoría de juegos en 3D — por qué cooperar (y cuándo no)</title>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <style>
+    :root {
+      --bg: #07070f;
+      --card: #0f0f1e;
+      --card2: #13132a;
+      --border: #1c1c35;
+      --gold: #ffd24a;
+      --green: #10d9a0;
+      --violet: #818cf8;
+      --blue: #4f7cff;
+      --red: #ff4d6d;
+      --orange: #ff9f43;
+      --text: #e2e8f0;
+      --muted: #4a5568;
+      --muted2: #718096;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .container { max-width: 1120px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    header { text-align: center; margin-bottom: 2.2rem; }
+
+    h1 {
+      font-size: clamp(1.7rem, 5vw, 2.8rem);
+      font-weight: 900;
+      background: linear-gradient(135deg, #ff4d6d 0%, #818cf8 50%, #10d9a0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      color: var(--muted2); font-size: 1rem;
+      max-width: 640px; margin: 0.6rem auto 0; line-height: 1.6;
+    }
+    .subtitle strong { color: var(--text); }
+
+    .section-tag {
+      display: inline-block;
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--violet);
+      background: rgba(129,140,248,0.1); border: 1px solid rgba(129,140,248,0.3);
+      border-radius: 999px; padding: 0.3rem 0.9rem; margin-bottom: 0.8rem;
+    }
+
+    section { margin-bottom: 2.5rem; }
+    section > h2 { font-size: 1.35rem; margin-bottom: 0.5rem; }
+    section > .lead { color: var(--muted2); font-size: 0.95rem; line-height: 1.65; max-width: 760px; margin-bottom: 1.2rem; }
+    section > .lead strong { color: var(--text); }
+
+    /* ── 1. Matriz ── */
+    .matrix-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1.5rem; padding: 1.6rem;
+    }
+    .matrix-grid {
+      display: grid;
+      grid-template-columns: auto 1fr 1fr;
+      gap: 0.6rem;
+      max-width: 620px;
+      margin: 0 auto 1.2rem;
+    }
+    .mx-corner { display: flex; align-items: flex-end; justify-content: center; font-size: 0.72rem; color: var(--muted); padding-bottom: 0.4rem; }
+    .mx-head {
+      text-align: center; font-size: 0.82rem; font-weight: 700; color: var(--muted2);
+      padding: 0.5rem; align-self: end;
+    }
+    .mx-side {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.82rem; font-weight: 700; color: var(--muted2);
+      writing-mode: vertical-rl; transform: rotate(180deg);
+      padding: 0.3rem;
+    }
+    .mx-cell {
+      background: var(--card2); border: 2px solid var(--border);
+      border-radius: 1rem; padding: 0.9rem 0.6rem;
+      text-align: center; transition: border-color 0.25s, background 0.25s, transform 0.25s;
+      position: relative;
+    }
+    .mx-cell .pair { display: flex; justify-content: center; gap: 0.6rem; }
+    .mx-cell .chip {
+      font-size: 0.95rem; font-weight: 900;
+      border-radius: 0.6rem; padding: 0.3rem 0.6rem;
+    }
+    .chip.you { background: rgba(79,124,255,0.15); color: var(--blue); }
+    .chip.opp { background: rgba(255,159,67,0.15); color: var(--orange); }
+    .mx-cell .lbl { font-size: 0.68rem; color: var(--muted); margin-top: 0.4rem; }
+
+    .mx-cell.sel { border-color: var(--violet); background: rgba(129,140,248,0.1); transform: scale(1.03); }
+    .mx-cell.focus { border-color: var(--gold); background: rgba(255,210,74,0.08); }
+    .mx-cell.nash { border-color: var(--red); }
+    .mx-cell.nash::after {
+      content: 'EQUILIBRIO DE NASH 🔒'; position: absolute; bottom: -0.55rem; left: 50%;
+      transform: translateX(-50%); font-size: 0.58rem; font-weight: 900; color: var(--red);
+      background: var(--bg); padding: 0 0.4rem; white-space: nowrap;
+    }
+    .mx-cell.pareto { border-color: var(--green); }
+    .mx-cell.pareto::after {
+      content: 'EL MEJOR ACUERDO 🤝'; position: absolute; bottom: -0.55rem; left: 50%;
+      transform: translateX(-50%); font-size: 0.58rem; font-weight: 900; color: var(--green);
+      background: var(--bg); padding: 0 0.4rem; white-space: nowrap;
+    }
+
+    .mx-toggles {
+      display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem;
+    }
+    .mx-toggle { text-align: center; }
+    .mx-toggle .who { font-size: 0.78rem; color: var(--muted2); margin-bottom: 0.35rem; font-weight: 700; }
+    .toggle-group {
+      display: inline-flex; background: var(--card2);
+      border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem; gap: 0.2rem;
+    }
+    .toggle-group button {
+      border: none; background: transparent; border-radius: 999px;
+      padding: 0.45rem 1rem; font-size: 0.85rem; color: var(--muted2);
+      transition: background 0.2s;
+    }
+    .toggle-group button.active { background: linear-gradient(135deg, #6366f1, #818cf8); color: #fff; }
+
+    .reason-box {
+      max-width: 620px; margin: 0 auto; text-align: center;
+    }
+    .reason-text {
+      min-height: 3.2em; font-size: 0.92rem; color: var(--muted2); line-height: 1.6;
+      margin-top: 0.9rem;
+    }
+    .reason-text strong { color: var(--gold); }
+
+    /* ── Botones genéricos ── */
+    button {
+      font-family: inherit; font-size: 0.95rem; font-weight: 700;
+      color: var(--text); background: var(--card2);
+      border: 1px solid var(--border); border-radius: 999px;
+      padding: 0.7rem 1.5rem; cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s, opacity 0.15s;
+    }
+    button:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--violet); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-main {
+      background: linear-gradient(135deg, #6366f1, #818cf8);
+      border: none; box-shadow: 0 4px 20px rgba(129,140,248,0.35);
+    }
+    .btn-green {
+      background: linear-gradient(135deg, #0ea371, #10d9a0);
+      border: none; box-shadow: 0 4px 20px rgba(16,217,160,0.3);
+    }
+    .btn-red {
+      background: linear-gradient(135deg, #e0335a, #ff4d6d);
+      border: none; box-shadow: 0 4px 20px rgba(255,77,109,0.3);
+    }
+    .btn-reset { color: var(--muted2); }
+
+    /* ── 2. Duelo ── */
+    .duel-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1.5rem; padding: 1.6rem;
+    }
+    .duel-top {
+      display: flex; justify-content: space-around; align-items: center;
+      margin-bottom: 1.2rem; flex-wrap: wrap; gap: 1rem;
+    }
+    .duel-player { text-align: center; }
+    .duel-avatar {
+      font-size: 2.6rem; width: 76px; height: 76px; line-height: 76px;
+      background: var(--card2); border: 2px solid var(--border); border-radius: 50%;
+      margin: 0 auto 0.4rem; transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .duel-avatar.flash-c { border-color: var(--green); box-shadow: 0 0 24px rgba(16,217,160,0.5); }
+    .duel-avatar.flash-d { border-color: var(--red); box-shadow: 0 0 24px rgba(255,77,109,0.5); }
+    .duel-name { font-size: 0.85rem; font-weight: 700; color: var(--muted2); }
+    .duel-score { font-size: 1.9rem; font-weight: 900; }
+    .duel-vs { font-size: 1rem; color: var(--muted); font-weight: 900; }
+    .duel-round { text-align: center; font-size: 0.85rem; color: var(--violet); font-weight: 700; margin-bottom: 0.9rem; }
+
+    .duel-buttons { display: flex; justify-content: center; gap: 1rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
+
+    .hist {
+      max-width: 680px; margin: 0 auto 0.6rem;
+      display: grid; grid-template-columns: auto 1fr; gap: 0.45rem 0.7rem; align-items: center;
+      font-size: 0.78rem; color: var(--muted2);
+    }
+    .hist-row { display: flex; gap: 0.25rem; flex-wrap: wrap; min-height: 1.7rem; }
+    .hist-chip {
+      width: 1.7rem; height: 1.7rem; border-radius: 0.45rem;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.85rem;
+      animation: popIn 0.25s ease;
+    }
+    @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+    .hist-chip.c { background: rgba(16,217,160,0.16); }
+    .hist-chip.d { background: rgba(255,77,109,0.16); }
+
+    .duel-msg {
+      max-width: 680px; margin: 0.8rem auto 0; text-align: center;
+      font-size: 0.92rem; color: var(--muted2); line-height: 1.65;
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 1rem; padding: 1rem 1.2rem;
+    }
+    .duel-msg strong { color: var(--gold); }
+    .duel-msg.hidden { display: none; }
+
+    /* ── 3. Arena 3D ── */
+    .scene-wrap {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 1.5rem;
+      overflow: hidden;
+      background: radial-gradient(ellipse at 50% 30%, #0d0d20 0%, #07070f 70%);
+      height: min(60vh, 540px);
+      margin-bottom: 1rem;
+      touch-action: none;
+    }
+    #arena { width: 100%; height: 100%; display: block; cursor: grab; }
+    #arena:active { cursor: grabbing; }
+
+    .gen-display {
+      position: absolute; top: 0.75rem; right: 1rem;
+      font-size: 1rem; font-weight: 900;
+      background: rgba(15,15,30,0.75); border: 1px solid var(--border);
+      border-radius: 0.8rem; padding: 0.4rem 1rem;
+      pointer-events: none; backdrop-filter: blur(4px);
+    }
+    .gen-display span { color: var(--violet); }
+
+    .scene-hint {
+      position: absolute; top: 0.9rem; left: 1rem;
+      font-size: 0.75rem; color: var(--muted2);
+      background: rgba(15,15,30,0.7); border: 1px solid var(--border);
+      border-radius: 999px; padding: 0.3rem 0.8rem;
+      pointer-events: none; backdrop-filter: blur(4px);
+    }
+
+    .legend-bar {
+      position: absolute; bottom: 0.9rem; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 0.9rem; flex-wrap: wrap; justify-content: center;
+      font-size: 0.76rem; font-weight: 700;
+      background: rgba(15,15,30,0.78); border: 1px solid var(--border);
+      border-radius: 999px; padding: 0.45rem 1.1rem;
+      pointer-events: none; backdrop-filter: blur(4px);
+      max-width: 95%;
+    }
+    .legend-bar .lg { transition: opacity 0.3s; white-space: nowrap; }
+    .legend-bar .lg.dead { opacity: 0.3; }
+    .legend-bar i {
+      display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+      margin-right: 0.3rem; vertical-align: -1px;
+    }
+
+    .result-banner {
+      position: absolute; top: 44%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.85);
+      font-size: clamp(1rem, 2.6vw, 1.5rem);
+      font-weight: 900;
+      padding: 0.7rem 1.5rem; border-radius: 1rem;
+      pointer-events: none; opacity: 0;
+      transition: opacity 0.25s, transform 0.25s;
+      backdrop-filter: blur(6px); text-align: center;
+      color: var(--gold);
+      background: rgba(255,210,74,0.1);
+      border: 1px solid rgba(255,210,74,0.45);
+      text-shadow: 0 0 24px rgba(255,210,74,0.6);
+      max-width: 88%;
+    }
+    .result-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+    .controls {
+      display: flex; justify-content: center; align-items: center;
+      gap: 0.7rem; flex-wrap: wrap; margin-bottom: 1rem;
+    }
+    .preset-group {
+      display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.2rem;
+    }
+    .preset-group button { font-size: 0.82rem; padding: 0.55rem 1rem; }
+    .preset-group button.active { border-color: var(--violet); background: rgba(129,140,248,0.12); color: var(--text); }
+
+    .chart-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1.2rem; padding: 1.3rem 1.5rem;
+    }
+    .chart-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.9rem; }
+    #evo-chart { width: 100%; height: 170px; display: block; }
+    .chart-note { font-size: 0.78rem; color: var(--muted2); margin-top: 0.7rem; line-height: 1.5; }
+    .chart-note strong { color: var(--text); }
+
+    /* ── Explicación ── */
+    .explain {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1.5rem; padding: 1.75rem; line-height: 1.7;
+    }
+    .explain h2 { font-size: 1.2rem; margin-bottom: 0.8rem; }
+    .explain p { color: var(--muted2); font-size: 0.95rem; margin-bottom: 0.8rem; }
+    .explain p:last-of-type { margin-bottom: 0; }
+    .explain strong { color: var(--text); }
+    .explain .hl { color: var(--gold); font-weight: 700; }
+    .explain .hl-g { color: var(--green); font-weight: 700; }
+    .explain .hl-r { color: var(--red); font-weight: 700; }
+
+    .facts {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 0.8rem; margin-top: 1.2rem;
+    }
+    @media (max-width: 720px) { .facts { grid-template-columns: repeat(2, 1fr); } }
+    .fact {
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 1rem; padding: 0.9rem; text-align: center;
+    }
+    .fact .n { font-size: 1.05rem; font-weight: 900; color: var(--violet); }
+    .fact .d { font-size: 0.72rem; color: var(--muted2); margin-top: 0.25rem; line-height: 1.4; }
+
+    footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 2rem; }
+    footer a { color: var(--violet); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <h1>🎮 Teoría de juegos en 3D</h1>
+    <p class="subtitle">
+      La ciencia de las decisiones cuando <strong>tu resultado depende de lo que haga el otro</strong>.
+      Tres niveles: entendé la trampa, caé en ella vos mismo, y después mirá cómo la evolución la resuelve.
+    </p>
+  </header>
+
+  <!-- ════════ 1. LA MATRIZ ════════ -->
+  <section>
+    <div class="section-tag">Nivel 1 · La trampa</div>
+    <h2>El dilema del prisionero</h2>
+    <p class="lead">
+      Vos y otra persona hacen un trato. Cada uno, <strong>en secreto</strong>, elige: cumplir (🤝 cooperar)
+      o aprovecharse (🔪 traicionar). Los puntos de cada combinación están en la matriz.
+      Probá las opciones y después apretá el botón para seguir el razonamiento "racional".
+    </p>
+    <div class="matrix-card">
+      <div class="mx-toggles">
+        <div class="mx-toggle">
+          <div class="who">VOS elegís</div>
+          <div class="toggle-group" id="tg-you">
+            <button data-m="C" class="active">🤝 Cooperar</button>
+            <button data-m="D">🔪 Traicionar</button>
+          </div>
+        </div>
+        <div class="mx-toggle">
+          <div class="who">EL OTRO elige</div>
+          <div class="toggle-group" id="tg-opp">
+            <button data-m="C" class="active">🤝 Cooperar</button>
+            <button data-m="D">🔪 Traicionar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="matrix-grid">
+        <div class="mx-corner">vos ↓ / él →</div>
+        <div class="mx-head">Él coopera 🤝</div>
+        <div class="mx-head">Él traiciona 🔪</div>
+
+        <div class="mx-side">Vos cooperás 🤝</div>
+        <div class="mx-cell pareto" id="m-CC">
+          <div class="pair"><span class="chip you">Vos +3</span><span class="chip opp">Él +3</span></div>
+          <div class="lbl">recompensa mutua</div>
+        </div>
+        <div class="mx-cell" id="m-CD">
+          <div class="pair"><span class="chip you">Vos +0</span><span class="chip opp">Él +5</span></div>
+          <div class="lbl">te usaron de tonto</div>
+        </div>
+
+        <div class="mx-side">Vos traicionás 🔪</div>
+        <div class="mx-cell" id="m-DC">
+          <div class="pair"><span class="chip you">Vos +5</span><span class="chip opp">Él +0</span></div>
+          <div class="lbl">la tentación</div>
+        </div>
+        <div class="mx-cell nash" id="m-DD">
+          <div class="pair"><span class="chip you">Vos +1</span><span class="chip opp">Él +1</span></div>
+          <div class="lbl">castigo mutuo</div>
+        </div>
+      </div>
+
+      <div class="reason-box">
+        <button class="btn-main" id="btn-reason">🧠 Seguí el razonamiento egoísta</button>
+        <div class="reason-text" id="reason-text">
+          La celda marcada en violeta es el resultado de las elecciones de arriba.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════ 2. EL DUELO ════════ -->
+  <section>
+    <div class="section-tag">Nivel 2 · Jugalo vos</div>
+    <h2>15 rondas contra un rival misterioso</h2>
+    <p class="lead">
+      Acá cambia todo: el juego <strong>se repite</strong>, y el otro <strong>recuerda lo que le hiciste</strong>.
+      Tu rival usa una estrategia secreta que se revela al final. ¿Cuántos puntos podés sacar?
+      (Si ambos cooperan siempre: 45 cada uno.)
+    </p>
+    <div class="duel-card">
+      <div class="duel-top">
+        <div class="duel-player">
+          <div class="duel-avatar" id="av-you">🧑</div>
+          <div class="duel-name">VOS</div>
+          <div class="duel-score" style="color:var(--blue)" id="duel-you">0</div>
+        </div>
+        <div class="duel-vs">VS</div>
+        <div class="duel-player">
+          <div class="duel-avatar" id="av-opp">❓</div>
+          <div class="duel-name" id="opp-name">???</div>
+          <div class="duel-score" style="color:var(--orange)" id="duel-opp">0</div>
+        </div>
+      </div>
+      <div class="duel-round" id="duel-round">Ronda 1 de 15 — elegí tu jugada</div>
+      <div class="duel-buttons">
+        <button class="btn-green" id="btn-coop">🤝 Cooperar</button>
+        <button class="btn-red" id="btn-betray">🔪 Traicionar</button>
+        <button class="btn-reset" id="btn-again" style="display:none">🔄 Jugar contra otro rival</button>
+      </div>
+      <div class="hist">
+        <span>Vos</span><div class="hist-row" id="hist-you"></div>
+        <span>Él</span><div class="hist-row" id="hist-opp"></div>
+      </div>
+      <div class="duel-msg hidden" id="duel-msg"></div>
+    </div>
+  </section>
+
+  <!-- ════════ 3. TORNEO EVOLUTIVO ════════ -->
+  <section>
+    <div class="section-tag">Nivel 3 · La evolución</div>
+    <h2>El torneo evolutivo: 60 pelotitas, 5 estrategias</h2>
+    <p class="lead">
+      Cada pelotita juega <strong>20 rondas del dilema contra todas las demás</strong>. Al final de cada
+      generación, las estrategias que más puntos juntaron <strong>se reproducen</strong> y las que menos,
+      desaparecen. Es el famoso torneo de Axelrod (1980). Elegí un mundo inicial y dale ▶.
+    </p>
+
+    <div class="preset-group" id="presets">
+      <button data-p="mixto" class="active">🌍 Mundo mixto</button>
+      <button data-p="paraiso">😇 Paraíso ingenuo + 12 traidores</button>
+      <button data-p="invasion">🪞 60 traidores, llegan 6 Ojo por Ojo</button>
+      <button data-p="minoria">🥶 Lo mismo pero solo 3</button>
+    </div>
+
+    <div class="scene-wrap">
+      <canvas id="arena"></canvas>
+      <div class="scene-hint">🖱️ arrastrá para girar</div>
+      <div class="gen-display">Generación <span id="gen-num">0</span></div>
+      <div class="legend-bar" id="legend"></div>
+      <div class="result-banner" id="t-banner"></div>
+    </div>
+
+    <div class="controls">
+      <button class="btn-main" id="btn-evolve">▶ Evolucionar</button>
+      <button id="btn-stepgen">+1 generación</button>
+      <button class="btn-reset" id="btn-treset">↺ Reiniciar</button>
+    </div>
+
+    <div class="chart-card">
+      <h3>📊 Quién domina la población, generación por generación</h3>
+      <canvas id="evo-chart"></canvas>
+      <p class="chart-note" id="chart-note">
+        Cada franja de color es la porción de la población que usa esa estrategia.
+        En el mundo mixto vas a ver el patrón clásico: <strong>los traidores explotan a los buenazos al
+        principio… y cuando se les acaban las víctimas, los vengativos los aniquilan.</strong>
+      </p>
+    </div>
+  </section>
+
+  <!-- ════════ 4. EXPLICACIÓN ════════ -->
+  <section>
+    <div class="explain">
+      <h2>🧠 Los conceptos profundos que acabás de ver</h2>
+      <p>
+        <strong>1. El equilibrio de Nash</strong> (nivel 1): es la celda donde <em>nadie puede mejorar
+        cambiando solo su propia jugada</em>. En el dilema, es traición mutua (+1, +1) — aunque ambos
+        preferirían (+3, +3). Esa es la tragedia: <span class="hl-r">decisiones individualmente racionales
+        pueden producir resultados colectivamente estúpidos</span>. Carreras armamentistas, guerras de
+        precios, spam electoral, sobrepesca: todos son dilemas del prisionero gigantes.
+      </p>
+      <p>
+        <strong>2. La sombra del futuro</strong> (nivel 2): si el juego se repite y el otro recuerda,
+        traicionar deja de ser gratis — <span class="hl">la jugada de hoy se paga mañana</span>. Por eso
+        cooperamos con el almacenero de la esquina pero desconfiamos del vendedor de una feria a la que
+        nunca vamos a volver. La cooperación no necesita bondad: necesita <em>futuro compartido</em>.
+      </p>
+      <p>
+        <strong>3. La evolución de la cooperación</strong> (nivel 3): en el torneo de Axelrod, contra
+        programas sofisticadísimos, ganó la estrategia más simple: <span class="hl-g">Ojo por Ojo</span>
+        (tit for tat). Sus cuatro virtudes: es <strong>amable</strong> (nunca traiciona primero),
+        <strong>vengativa</strong> (devuelve la traición al instante), <strong>indulgente</strong>
+        (si volvés a cooperar, te perdona) y <strong>clara</strong> (el rival entiende rápido las reglas).
+        Ser buenazo puro no alcanza: los 😇 son devorados. Ser malvado tampoco: los 😈 se quedan sin víctimas.
+        Gana ser <span class="hl">bueno, pero no tonto</span>.
+      </p>
+      <p>
+        <strong>4. Masa crítica</strong> (presets 🪞 y 🥶): 6 cooperadores juntos en un mundo de traidores
+        se potencian entre sí e invaden todo; 3 no generan suficientes encuentros mutuos y quedan congelados.
+        La cooperación no aparece de a uno: <span class="hl-g">necesita un grupo mínimo que coopere entre
+        sí</span>. Así se explica desde la tregua espontánea de las trincheras en la Primera Guerra Mundial
+        hasta por qué las comunidades chicas y los gremios sostienen normas que las multitudes anónimas no.
+      </p>
+      <div class="facts">
+        <div class="fact"><div class="n">1950 · Nash</div><div class="d">formaliza el equilibrio que lleva su nombre (Nobel 1994)</div></div>
+        <div class="fact"><div class="n">1980 · Axelrod</div><div class="d">su torneo lo gana la estrategia más simple de todas</div></div>
+        <div class="fact"><div class="n">5 &gt; 3 &gt; 1 &gt; 0</div><div class="d">tentación &gt; recompensa &gt; castigo &gt; tonto: la receta exacta del dilema</div></div>
+        <div class="fact"><div class="n">🦇</div><div class="d">los murciélagos vampiro comparten sangre… solo con quienes compartieron antes: ojo por ojo en la naturaleza</div></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Hecho con Three.js · <a href="probabilidad.html">🎲 el 1% en 3D</a> · <a href="interes-compuesto.html">💰 interés compuesto en 3D</a> · <a href="index.html">← AI Lobotomy Index</a>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+
+  // Pagos: R recompensa, T tentación, P castigo, S tonto
+  const R = 3, T = 5, P = 1, S = 0;
+
+  // ═════════════════ 1. MATRIZ INTERACTIVA ═════════════════
+  let youM = 'C', oppM = 'C';
+
+  function paintMatrix() {
+    ['CC', 'CD', 'DC', 'DD'].forEach(k => $('m-' + k).classList.remove('sel'));
+    $('m-' + youM + oppM).classList.add('sel');
+  }
+  function bindToggle(groupId, setter) {
+    document.querySelectorAll('#' + groupId + ' button').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#' + groupId + ' button').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        setter(b.dataset.m);
+        paintMatrix();
+      });
+    });
+  }
+  bindToggle('tg-you', m => youM = m);
+  bindToggle('tg-opp', m => oppM = m);
+  paintMatrix();
+
+  const reasonSteps = [
+    { cells: ['CC', 'DC'], text: 'Supongamos que él <strong>coopera</strong> (columna izquierda). Si vos cooperás ganás 3… pero si traicionás ganás <strong>5</strong>. Traicionar conviene.' },
+    { cells: ['CD', 'DD'], text: 'Ahora supongamos que él <strong>traiciona</strong> (columna derecha). Cooperando te llevás 0; traicionando, al menos <strong>1</strong>. Traicionar conviene otra vez.' },
+    { cells: ['DC', 'DD'], text: 'Conclusión "racional": <strong>haga lo que haga él, te conviene traicionar</strong>. Es la estrategia dominante. Y él, razonando igual, llega a lo mismo…' },
+    { cells: ['DD'], text: 'Resultado: ambos traicionan y ganan <strong>1 punto cada uno</strong>, cuando cooperando ganaban 3. Nadie puede mejorar cambiando solo: eso es el equilibrio de Nash. La lógica perfecta los encerró en el peor cuarto de la casa. 🔒' }
+  ];
+  let reasoning = false;
+  $('btn-reason').addEventListener('click', () => {
+    if (reasoning) return;
+    reasoning = true;
+    $('btn-reason').disabled = true;
+    let i = 0;
+    function step() {
+      document.querySelectorAll('.mx-cell').forEach(c => c.classList.remove('focus'));
+      if (i >= reasonSteps.length) {
+        reasoning = false;
+        $('btn-reason').disabled = false;
+        return;
+      }
+      const s = reasonSteps[i];
+      s.cells.forEach(k => $('m-' + k).classList.add('focus'));
+      $('reason-text').innerHTML = s.text;
+      i++;
+      setTimeout(step, 3400);
+    }
+    step();
+  });
+
+  // ═════════════════ Estrategias compartidas ═════════════════
+  // move(historiaDelRival) → 'C' | 'D'
+  const STRATEGIES = {
+    allc:   { name: '😇 Buenazo',     desc: 'coopera siempre, pase lo que pase', color: 0x10d9a0, css: '#10d9a0' },
+    alld:   { name: '😈 Traidor',     desc: 'traiciona siempre, pase lo que pase', color: 0xff4d6d, css: '#ff4d6d' },
+    tft:    { name: '🪞 Ojo por Ojo', desc: 'empieza cooperando y copia tu última jugada', color: 0x818cf8, css: '#818cf8' },
+    grudge: { name: '😤 Rencoroso',   desc: 'coopera hasta tu primera traición; después no perdona jamás', color: 0xff9f43, css: '#ff9f43' },
+    rand:   { name: '🎲 Caótico',     desc: 'juega al azar, sin mirar nada', color: 0x718096, css: '#718096' }
+  };
+  const SKEYS = ['allc', 'alld', 'tft', 'grudge', 'rand'];
+
+  function stratMove(key, round, rivalMoves) {
+    switch (key) {
+      case 'allc': return 'C';
+      case 'alld': return 'D';
+      case 'tft': return round === 0 ? 'C' : rivalMoves[round - 1];
+      case 'grudge': return rivalMoves.includes('D') ? 'D' : 'C';
+      case 'rand': return Math.random() < 0.5 ? 'C' : 'D';
+    }
+  }
+  function payoff(a, b) {
+    if (a === 'C' && b === 'C') return [R, R];
+    if (a === 'D' && b === 'D') return [P, P];
+    return a === 'D' ? [T, S] : [S, T];
+  }
+
+  // ═════════════════ 2. EL DUELO ═════════════════
+  const DUEL_ROUNDS = 15;
+  let duel = null;
+
+  function newDuel() {
+    const pool = ['tft', 'alld', 'grudge', 'rand'];
+    duel = {
+      opp: pool[Math.floor(Math.random() * pool.length)],
+      you: [], him: [], youScore: 0, oppScore: 0, over: false
+    };
+    $('duel-you').textContent = '0';
+    $('duel-opp').textContent = '0';
+    $('hist-you').innerHTML = '';
+    $('hist-opp').innerHTML = '';
+    $('av-opp').textContent = '❓';
+    $('opp-name').textContent = '???';
+    $('duel-round').textContent = 'Ronda 1 de ' + DUEL_ROUNDS + ' — elegí tu jugada';
+    $('duel-msg').classList.add('hidden');
+    $('btn-coop').style.display = '';
+    $('btn-betray').style.display = '';
+    $('btn-again').style.display = 'none';
+  }
+
+  function histChip(row, move) {
+    const el = document.createElement('span');
+    el.className = 'hist-chip ' + move.toLowerCase();
+    el.textContent = move === 'C' ? '🤝' : '🔪';
+    $(row).appendChild(el);
+  }
+
+  function flashAvatar(id, move) {
+    const el = $(id);
+    el.classList.remove('flash-c', 'flash-d');
+    void el.offsetWidth;
+    el.classList.add(move === 'C' ? 'flash-c' : 'flash-d');
+  }
+
+  function duelPlay(myMove) {
+    if (!duel || duel.over) return;
+    const r = duel.you.length;
+    const hisMove = stratMove(duel.opp, r, duel.you);
+    duel.you.push(myMove);
+    duel.him.push(hisMove);
+    const [a, b] = payoff(myMove, hisMove);
+    duel.youScore += a;
+    duel.oppScore += b;
+    $('duel-you').textContent = duel.youScore;
+    $('duel-opp').textContent = duel.oppScore;
+    histChip('hist-you', myMove);
+    histChip('hist-opp', hisMove);
+    flashAvatar('av-you', myMove);
+    flashAvatar('av-opp', hisMove);
+
+    if (duel.you.length >= DUEL_ROUNDS) {
+      duel.over = true;
+      revealDuel();
+    } else {
+      $('duel-round').textContent = 'Ronda ' + (duel.you.length + 1) + ' de ' + DUEL_ROUNDS + ' — elegí tu jugada';
+    }
+  }
+
+  function revealDuel() {
+    const info = STRATEGIES[duel.opp];
+    $('av-opp').textContent = info.name.slice(0, 2);
+    $('opp-name').textContent = info.name.slice(3);
+    $('duel-round').textContent = '¡Fin del duelo!';
+    $('btn-coop').style.display = 'none';
+    $('btn-betray').style.display = 'none';
+    $('btn-again').style.display = '';
+
+    const betrayals = duel.you.filter(m => m === 'D').length;
+    let lesson = '';
+    switch (duel.opp) {
+      case 'tft':
+        lesson = betrayals === 0
+          ? 'Cooperaron de punta a punta: 45 y 45, el máximo botín mutuo. Así se le gana a Ojo por Ojo: no se le gana, se colabora.'
+          : 'Cada una de tus ' + betrayals + ' traiciones te la devolvió en la ronda siguiente. Contra Ojo por Ojo, traicionar es pegarle al espejo: lo óptimo era cooperar siempre (45 puntos).';
+        break;
+      case 'alld':
+        lesson = 'Iba a traicionarte siempre, hicieras lo que hicieras. Contra un traidor incorregible lo único que te protege es traicionar también — por eso la primera pregunta de la teoría de juegos es: ¿con quién estoy jugando?';
+        break;
+      case 'grudge':
+        lesson = betrayals === 0
+          ? 'Nunca lo traicionaste, así que nunca conociste su lado oscuro: cooperación total. El Rencoroso es un gran socio… con memoria de elefante.'
+          : 'Cooperaba con vos… hasta tu primera traición. Después no perdonó nunca más: una sola jugada te costó todas las rondas siguientes. La confianza tarda en construirse y se rompe una sola vez.';
+        break;
+      case 'rand':
+        lesson = 'Jugaba al azar: no leía tus señales ni respondía a nada. Contra alguien impredecible que no recuerda, no hay sombra del futuro — y sin futuro, la teoría es fría: conviene traicionar.';
+        break;
+    }
+    $('duel-msg').innerHTML = '<strong>Tu rival era ' + info.name + '</strong> (' + info.desc + ').<br>' + lesson;
+    $('duel-msg').classList.remove('hidden');
+  }
+
+  $('btn-coop').addEventListener('click', () => duelPlay('C'));
+  $('btn-betray').addEventListener('click', () => duelPlay('D'));
+  $('btn-again').addEventListener('click', newDuel);
+  newDuel();
+
+  // ═════════════════ 3. ARENA 3D EVOLUTIVA ═════════════════
+  const N = 60;
+  const MATCH_ROUNDS = 20;
+  const MAX_GENS = 60;
+  const CLOUD_RADIUS = 5.0;
+  const BALL_RADIUS = 0.4;
+
+  const PRESETS = {
+    mixto:    [12, 12, 12, 12, 12],
+    paraiso:  [48, 12, 0, 0, 0],
+    invasion: [0, 54, 6, 0, 0],
+    minoria:  [0, 57, 3, 0, 0]
+  };
+  const PRESET_NOTES = {
+    mixto: 'Cada franja de color es la porción de la población que usa esa estrategia. El patrón clásico: <strong>los traidores explotan a los buenazos y al caos al principio… y cuando se les acaban las víctimas, Ojo por Ojo y el Rencoroso se quedan con todo.</strong> Fijate que los buenazos sobreviven: los vengativos les hacen de guardaespaldas.',
+    paraiso: 'Un mundo de puros buenazos parece el paraíso… hasta que entran 12 traidores. <strong>Sin nadie que castigue, los explotadores devoran todo en pocas generaciones.</strong> La bondad sin defensa no es estable.',
+    invasion: 'Seis Ojo por Ojo entran a un mundo 90% traidor. Entre ellos cooperan (30 pts por partida) mientras los traidores se castigan entre sí (20). <strong>Esa diferencia alcanza: la cooperación invade y conquista todo.</strong>',
+    minoria: 'Mismo experimento con solo 3 cooperadores. <strong>No se cruzan entre sí lo suficiente y la ventaja no alcanza: quedan congelados para siempre.</strong> La cooperación necesita masa crítica.'
+  };
+
+  let counts = PRESETS.mixto.slice();
+  let genNum = 0;
+  let history = [counts.slice()];
+  let playing = false;
+  let announced = { extinct: {}, dominant: {}, stuck: false };
+  let stableGens = 0;
+
+  // — Escena —
+  const canvas = $('arena');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x07070f, 13, 26);
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+  camera.position.set(0, 0, 13);
+
+  scene.add(new THREE.AmbientLight(0x8890c0, 0.8));
+  const key = new THREE.DirectionalLight(0xffffff, 1.3);
+  key.position.set(6, 8, 10);
+  scene.add(key);
+  const rim = new THREE.PointLight(0x818cf8, 14, 30);
+  rim.position.set(-8, -4, 6);
+  scene.add(rim);
+
+  const cloud = new THREE.Group();
+  scene.add(cloud);
+
+  function randomCloudPositions(n) {
+    const pts = [];
+    let guard = 0;
+    while (pts.length < n && guard < 20000) {
+      guard++;
+      const v = new THREE.Vector3(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1);
+      if (v.length() > 1) continue;
+      v.multiplyScalar(CLOUD_RADIUS);
+      if (pts.every(p => p.distanceTo(v) > BALL_RADIUS * 2.3)) pts.push(v);
+    }
+    while (pts.length < n) {
+      pts.push(new THREE.Vector3().randomDirection().multiplyScalar(CLOUD_RADIUS * Math.cbrt(Math.random())));
+    }
+    return pts;
+  }
+
+  const sphereGeo = new THREE.SphereGeometry(BALL_RADIUS, 22, 16);
+  const positions = randomCloudPositions(N);
+  const agents = [];
+
+  function popFromCounts(c) {
+    const arr = [];
+    SKEYS.forEach((s, i) => { for (let k = 0; k < c[i]; k++) arr.push(s); });
+    // mezclar para que los grupos queden esparcidos
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  const initialPop = popFromCounts(counts);
+  for (let i = 0; i < N; i++) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: STRATEGIES[initialPop[i]].color, roughness: 0.4, metalness: 0.35,
+      emissive: STRATEGIES[initialPop[i]].color, emissiveIntensity: 0.12
+    });
+    const mesh = new THREE.Mesh(sphereGeo, mat);
+    mesh.position.copy(positions[i]);
+    cloud.add(mesh);
+    agents.push({
+      mesh, strat: initialPop[i],
+      home: positions[i].clone(),
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.5 + Math.random() * 0.7,
+      sizeFrom: 1, sizeTo: 1,
+      colorFrom: new THREE.Color(STRATEGIES[initialPop[i]].color),
+      colorTo: new THREE.Color(STRATEGIES[initialPop[i]].color),
+      nextStrat: initialPop[i]
+    });
+  }
+
+  // Líneas de enfrentamientos
+  const MAX_LINES = 42;
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_LINES * 2 * 3), 3));
+  lineGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(MAX_LINES * 2 * 3), 3));
+  const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0 });
+  const lines = new THREE.LineSegments(lineGeo, lineMat);
+  cloud.add(lines);
+  let activeLines = [];
+
+  const LINE_GREEN = new THREE.Color(0x10d9a0);
+  const LINE_RED = new THREE.Color(0xff4d6d);
+  const LINE_AMBER = new THREE.Color(0xffd24a);
+
+  // — Lógica de una generación —
+  function playMatchSim(aStrat, bStrat) {
+    const am = [], bm = [];
+    let sa = 0, sb = 0, coop = 0;
+    for (let r = 0; r < MATCH_ROUNDS; r++) {
+      const ma = stratMove(aStrat, r, bm);
+      const mb = stratMove(bStrat, r, am);
+      am.push(ma); bm.push(mb);
+      const [pa, pb] = payoff(ma, mb);
+      sa += pa; sb += pb;
+      if (ma === 'C') coop++;
+      if (mb === 'C') coop++;
+    }
+    return { sa, sb, coopRatio: coop / (MATCH_ROUNDS * 2) };
+  }
+
+  function computeGeneration() {
+    const score = new Array(N).fill(0);
+    const sampleLines = [];
+    for (let i = 0; i < N; i++) {
+      for (let j = i + 1; j < N; j++) {
+        const m = playMatchSim(agents[i].strat, agents[j].strat);
+        score[i] += m.sa;
+        score[j] += m.sb;
+        if (sampleLines.length < 600) sampleLines.push({ i, j, coopRatio: m.coopRatio });
+      }
+    }
+    // líneas a mostrar: muestra al azar
+    activeLines = [];
+    for (let k = 0; k < MAX_LINES; k++) {
+      activeLines.push(sampleLines[Math.floor(Math.random() * sampleLines.length)]);
+    }
+
+    // tamaños según puntaje
+    const mn = Math.min(...score), mx = Math.max(...score);
+    agents.forEach((a, i) => {
+      a.sizeFrom = a.mesh.scale.x;
+      a.sizeTo = mx > mn ? 0.65 + 1.0 * (score[i] - mn) / (mx - mn) : 1;
+    });
+
+    // replicador: nueva población proporcional al puntaje total por estrategia
+    const tot = new Array(SKEYS.length).fill(0);
+    agents.forEach((a, i) => { tot[SKEYS.indexOf(a.strat)] += score[i]; });
+    const grand = tot.reduce((x, y) => x + y, 0) || 1;
+    const exact = tot.map(v => v / grand * N);
+    const next = exact.map(Math.floor);
+    let rem = N - next.reduce((x, y) => x + y, 0);
+    exact.map((e, i) => [e - Math.floor(e), i]).sort((a, b) => b[0] - a[0])
+      .slice(0, rem).forEach(([, i]) => next[i]++);
+
+    // reasignación de pelotitas: las estrategias que crecen convierten a las que achican
+    const cur = new Array(SKEYS.length).fill(0);
+    agents.forEach(a => cur[SKEYS.indexOf(a.strat)]++);
+    const donors = [];
+    SKEYS.forEach((s, i) => {
+      let d = cur[i] - next[i];
+      if (d > 0) {
+        const pool = agents.filter(a => a.strat === s);
+        for (let k = pool.length - 1; k > 0; k--) {
+          const j = Math.floor(Math.random() * (k + 1));
+          [pool[k], pool[j]] = [pool[j], pool[k]];
+        }
+        donors.push(...pool.slice(0, d));
+      }
+    });
+    let di = 0;
+    agents.forEach(a => { a.nextStrat = a.strat; });
+    SKEYS.forEach((s, i) => {
+      let need = next[i] - cur[i];
+      while (need > 0 && di < donors.length) {
+        donors[di].nextStrat = s;
+        di++; need--;
+      }
+    });
+    agents.forEach(a => {
+      a.colorFrom.copy(a.mesh.material.color);
+      a.colorTo.set(STRATEGIES[a.nextStrat].color);
+    });
+
+    return next;
+  }
+
+  // — Animación por fases —
+  let phase = 'idle'; // idle | lines | morph
+  let phaseT = 0;
+  let pendingCounts = null;
+  const LINES_DUR = 0.85, MORPH_DUR = 0.65, GAP_DUR = 0.25;
+
+  function startGeneration() {
+    if (genNum >= MAX_GENS) { setPlaying(false); return; }
+    pendingCounts = computeGeneration();
+    phase = 'lines';
+    phaseT = 0;
+  }
+
+  function finishGeneration() {
+    const prev = counts.slice();
+    agents.forEach(a => { a.strat = a.nextStrat; });
+    counts = pendingCounts;
+    genNum++;
+    history.push(counts.slice());
+    if (history.length > MAX_GENS + 1) history.shift();
+    $('gen-num').textContent = genNum;
+    updateLegend();
+    drawEvoChart();
+    stableGens = prev.join() === counts.join() ? stableGens + 1 : 0;
+    checkTournamentMilestones();
+  }
+
+  // — Banner y mensajes —
+  const tBanner = $('t-banner');
+  let tBannerTimer = null;
+  function showTBanner(text, ms) {
+    tBanner.innerHTML = text;
+    tBanner.classList.add('show');
+    clearTimeout(tBannerTimer);
+    tBannerTimer = setTimeout(() => tBanner.classList.remove('show'), ms || 2600);
+  }
+
+  function checkTournamentMilestones() {
+    SKEYS.forEach((s, i) => {
+      if (counts[i] === 0 && history.length > 1 && history[history.length - 2][i] > 0 && !announced.extinct[s]) {
+        announced.extinct[s] = true;
+        showTBanner('💀 ' + STRATEGIES[s].name + ' se extinguió en la generación ' + genNum);
+      }
+      if (counts[i] > N / 2 && !announced.dominant[s] && history[0][i] <= N / 2) {
+        announced.dominant[s] = true;
+        showTBanner('👑 ' + STRATEGIES[s].name + ' ya es mayoría absoluta');
+      }
+    });
+    if (stableGens >= 5 && !announced.stuck) {
+      announced.stuck = true;
+      setPlaying(false);
+      const tftIdx = SKEYS.indexOf('tft'), alldIdx = SKEYS.indexOf('alld');
+      if (counts[alldIdx] > N * 0.7 && counts[tftIdx] > 0) {
+        showTBanner('🥶 Se congeló: ' + counts[tftIdx] + ' cooperadores no alcanzan la masa crítica para invadir', 4200);
+      } else {
+        showTBanner('⚖️ La población se estabilizó: ninguna estrategia puede invadir a las demás (equilibrio evolutivo)', 4200);
+      }
+    }
+    if (genNum >= MAX_GENS) setPlaying(false);
+  }
+
+  // — Leyenda —
+  function updateLegend() {
+    $('legend').innerHTML = SKEYS.map((s, i) =>
+      '<span class="lg' + (counts[i] === 0 ? ' dead' : '') + '"><i style="background:' +
+      STRATEGIES[s].css + '"></i>' + STRATEGIES[s].name + ' <b>' + counts[i] + '</b></span>'
+    ).join('');
+  }
+
+  // — Gráfico de evolución —
+  const evoCanvas = $('evo-chart');
+  const ectx = evoCanvas.getContext('2d');
+  function drawEvoChart() {
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    const w = evoCanvas.clientWidth, h = evoCanvas.clientHeight;
+    if (evoCanvas.width !== w * dpr) { evoCanvas.width = w * dpr; evoCanvas.height = h * dpr; }
+    ectx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ectx.clearRect(0, 0, w, h);
+    const padB = 16;
+    const len = history.length;
+    const X = g => len > 1 ? g / (len - 1) * w : 0;
+    const Y = v => (1 - v) * (h - padB);
+
+    // áreas apiladas
+    let baseShares = new Array(len).fill(0);
+    SKEYS.forEach((s, si) => {
+      const tops = history.map((c, g) => baseShares[g] + c[si] / N);
+      ectx.beginPath();
+      ectx.moveTo(X(0), Y(baseShares[0]));
+      for (let g = 0; g < len; g++) ectx.lineTo(X(g), Y(tops[g]));
+      for (let g = len - 1; g >= 0; g--) ectx.lineTo(X(g), Y(baseShares[g]));
+      ectx.closePath();
+      ectx.fillStyle = STRATEGIES[s].css + '99';
+      ectx.fill();
+      baseShares = tops;
+    });
+
+    ectx.fillStyle = '#4a5568';
+    ectx.font = '10px sans-serif';
+    ectx.textAlign = 'left';
+    ectx.fillText('gen 0', 2, h - 4);
+    ectx.textAlign = 'right';
+    ectx.fillText('gen ' + genNum, w - 2, h - 4);
+  }
+
+  // — Controles del torneo —
+  const btnEvolve = $('btn-evolve');
+  function setPlaying(p) {
+    playing = p;
+    btnEvolve.textContent = p ? '⏸ Pausa' : '▶ Evolucionar';
+  }
+  btnEvolve.addEventListener('click', () => {
+    if (genNum >= MAX_GENS) return;
+    setPlaying(!playing);
+    if (playing && phase === 'idle') startGeneration();
+  });
+  $('btn-stepgen').addEventListener('click', () => {
+    setPlaying(false);
+    if (phase === 'idle') startGeneration();
+  });
+
+  function applyPreset(name) {
+    setPlaying(false);
+    phase = 'idle';
+    counts = PRESETS[name].slice();
+    genNum = 0;
+    history = [counts.slice()];
+    announced = { extinct: {}, dominant: {}, stuck: false };
+    stableGens = 0;
+    lineMat.opacity = 0;
+    tBanner.classList.remove('show');
+    const pop = popFromCounts(counts);
+    agents.forEach((a, i) => {
+      a.strat = pop[i];
+      a.nextStrat = pop[i];
+      a.mesh.material.color.set(STRATEGIES[pop[i]].color);
+      a.mesh.material.emissive.set(STRATEGIES[pop[i]].color);
+      a.mesh.scale.setScalar(1);
+      a.sizeFrom = 1; a.sizeTo = 1;
+    });
+    $('gen-num').textContent = '0';
+    $('chart-note').innerHTML = PRESET_NOTES[name];
+    updateLegend();
+    drawEvoChart();
+  }
+
+  document.querySelectorAll('#presets button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#presets button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      applyPreset(b.dataset.p);
+    });
+  });
+  $('btn-treset').addEventListener('click', () => {
+    applyPreset(document.querySelector('#presets button.active').dataset.p);
+  });
+
+  // — Interacción de cámara —
+  let dragging = false, lastX = 0, lastY = 0;
+  let rotY = 0, rotX = 0;
+  canvas.addEventListener('pointerdown', e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
+  window.addEventListener('pointerup', () => { dragging = false; });
+  window.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    rotY += (e.clientX - lastX) * 0.005;
+    rotX += (e.clientY - lastY) * 0.005;
+    rotX = Math.max(-1.2, Math.min(1.2, rotX));
+    lastX = e.clientX; lastY = e.clientY;
+  });
+
+  function resize() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (canvas.width !== Math.floor(w * renderer.getPixelRatio())) {
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+  }
+  window.addEventListener('resize', () => { resize(); drawEvoChart(); });
+
+  // — Loop —
+  let prevT = performance.now();
+  function animate(now) {
+    requestAnimationFrame(animate);
+    const dt = Math.min((now - prevT) / 1000, 0.05);
+    prevT = now;
+    resize();
+
+    if (!dragging) rotY += 0.1 * dt;
+    cloud.rotation.y = rotY;
+    cloud.rotation.x = rotX;
+
+    const t = now / 1000;
+    for (const a of agents) {
+      a.mesh.position.copy(a.home);
+      a.mesh.position.y += Math.sin(t * a.speed + a.phase) * 0.15;
+      a.mesh.position.x += Math.cos(t * a.speed * 0.8 + a.phase) * 0.1;
+    }
+
+    if (phase === 'lines') {
+      phaseT += dt;
+      const p = Math.min(phaseT / LINES_DUR, 1);
+      lineMat.opacity = Math.sin(Math.PI * p) * 0.8;
+      const pos = lineGeo.attributes.position.array;
+      const col = lineGeo.attributes.color.array;
+      for (let k = 0; k < activeLines.length; k++) {
+        const L = activeLines[k];
+        const pa = agents[L.i].mesh.position, pb = agents[L.j].mesh.position;
+        pos[k * 6] = pa.x; pos[k * 6 + 1] = pa.y; pos[k * 6 + 2] = pa.z;
+        pos[k * 6 + 3] = pb.x; pos[k * 6 + 4] = pb.y; pos[k * 6 + 5] = pb.z;
+        const c = L.coopRatio > 0.75 ? LINE_GREEN : (L.coopRatio < 0.3 ? LINE_RED : LINE_AMBER);
+        col[k * 6] = c.r; col[k * 6 + 1] = c.g; col[k * 6 + 2] = c.b;
+        col[k * 6 + 3] = c.r; col[k * 6 + 4] = c.g; col[k * 6 + 5] = c.b;
+      }
+      lineGeo.setDrawRange(0, activeLines.length * 2);
+      lineGeo.attributes.position.needsUpdate = true;
+      lineGeo.attributes.color.needsUpdate = true;
+      // tamaño según puntaje
+      for (const a of agents) {
+        a.mesh.scale.setScalar(a.sizeFrom + (a.sizeTo - a.sizeFrom) * p);
+      }
+      if (p >= 1) { phase = 'morph'; phaseT = 0; }
+    } else if (phase === 'morph') {
+      phaseT += dt;
+      const p = Math.min(phaseT / MORPH_DUR, 1);
+      lineMat.opacity = 0;
+      for (const a of agents) {
+        a.mesh.material.color.lerpColors(a.colorFrom, a.colorTo, p);
+        a.mesh.material.emissive.lerpColors(a.colorFrom, a.colorTo, p);
+        a.mesh.scale.setScalar(a.sizeTo + (1 - a.sizeTo) * p);
+      }
+      if (p >= 1) {
+        finishGeneration();
+        phase = 'gap';
+        phaseT = 0;
+      }
+    } else if (phase === 'gap') {
+      phaseT += dt;
+      if (phaseT >= GAP_DUR) {
+        phase = 'idle';
+        if (playing) startGeneration();
+      }
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  updateLegend();
+  drawEvoChart();
+  requestAnimationFrame(animate);
+})();
+</script>
+
+</body>
+</html>
