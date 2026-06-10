@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta property="og:title" content="El interés compuesto en 3D 💰">
+  <meta property="og:description" content="Dos torres de monedas: interés simple vs compuesto. Mirá cómo el interés sobre interés se come todo.">
+  <title>💰 El interés compuesto en 3D — la bola de nieve del dinero</title>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <style>
+    :root {
+      --bg: #07070f;
+      --card: #0f0f1e;
+      --card2: #13132a;
+      --border: #1c1c35;
+      --gold: #ffd24a;
+      --green: #10d9a0;
+      --violet: #818cf8;
+      --blue: #4f7cff;
+      --orange: #ff6b35;
+      --text: #e2e8f0;
+      --muted: #4a5568;
+      --muted2: #718096;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .container { max-width: 1120px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    header { text-align: center; margin-bottom: 1.75rem; }
+
+    h1 {
+      font-size: clamp(1.7rem, 5vw, 2.8rem);
+      font-weight: 900;
+      background: linear-gradient(135deg, #ffd24a 0%, #10d9a0 60%, #4f7cff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      color: var(--muted2); font-size: 1rem;
+      max-width: 620px; margin: 0.6rem auto 0; line-height: 1.6;
+    }
+    .subtitle strong { color: var(--gold); }
+
+    /* ── Escena ── */
+    .scene-wrap {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 1.5rem;
+      overflow: hidden;
+      background: radial-gradient(ellipse at 50% 25%, #0d0d20 0%, #07070f 70%);
+      height: min(64vh, 580px);
+      margin-bottom: 1rem;
+      touch-action: none;
+    }
+    #scene { width: 100%; height: 100%; display: block; cursor: grab; }
+    #scene:active { cursor: grabbing; }
+
+    .scene-hint {
+      position: absolute; top: 0.9rem; left: 50%; transform: translateX(-50%);
+      font-size: 0.78rem; color: var(--muted2);
+      background: rgba(15,15,30,0.7); border: 1px solid var(--border);
+      border-radius: 999px; padding: 0.3rem 0.9rem;
+      pointer-events: none; white-space: nowrap; backdrop-filter: blur(4px);
+    }
+
+    .year-display {
+      position: absolute; top: 0.75rem; right: 1rem;
+      font-size: 1.1rem; font-weight: 900; color: var(--text);
+      background: rgba(15,15,30,0.75); border: 1px solid var(--border);
+      border-radius: 0.8rem; padding: 0.4rem 1rem;
+      pointer-events: none; backdrop-filter: blur(4px);
+    }
+    .year-display span { color: var(--violet); }
+
+    .tower-label {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      pointer-events: none;
+      text-align: center;
+      font-size: 0.82rem;
+      font-weight: 700;
+      background: rgba(15,15,30,0.8);
+      border: 1px solid var(--border);
+      border-radius: 0.7rem;
+      padding: 0.35rem 0.7rem;
+      white-space: nowrap;
+      backdrop-filter: blur(4px);
+    }
+    .tower-label .amt { font-size: 1rem; font-weight: 900; }
+    .tower-label.simple .amt { color: var(--muted2); }
+    .tower-label.comp .amt { color: var(--gold); }
+    .tower-label .mult { font-size: 0.7rem; color: var(--green); }
+
+    .legend {
+      position: absolute; bottom: 0.9rem; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
+      font-size: 0.75rem; color: var(--muted2);
+      background: rgba(15,15,30,0.75); border: 1px solid var(--border);
+      border-radius: 999px; padding: 0.4rem 1.1rem;
+      pointer-events: none; backdrop-filter: blur(4px);
+    }
+    .legend i {
+      display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+      margin-right: 0.35rem; vertical-align: -1px;
+    }
+
+    .result-banner {
+      position: absolute; top: 42%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.85);
+      font-size: clamp(1.1rem, 3vw, 1.8rem);
+      font-weight: 900;
+      padding: 0.7rem 1.5rem;
+      border-radius: 1rem;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.25s, transform 0.25s;
+      backdrop-filter: blur(6px);
+      text-align: center;
+      color: var(--gold);
+      background: rgba(255,210,74,0.12);
+      border: 1px solid rgba(255,210,74,0.5);
+      text-shadow: 0 0 24px rgba(255,210,74,0.7);
+      max-width: 90%;
+    }
+    .result-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+    /* ── Controles ── */
+    .timeline {
+      display: flex; align-items: center; gap: 1rem;
+      margin-bottom: 1rem; padding: 0 0.25rem;
+    }
+    .timeline input[type=range] {
+      flex: 1; accent-color: #818cf8; height: 6px; cursor: pointer;
+    }
+    .timeline .tl-label { font-size: 0.8rem; color: var(--muted2); white-space: nowrap; }
+
+    .controls {
+      display: flex; justify-content: center; align-items: center;
+      gap: 0.7rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+    }
+
+    button {
+      font-family: inherit; font-size: 0.95rem; font-weight: 700;
+      color: var(--text); background: var(--card2);
+      border: 1px solid var(--border); border-radius: 999px;
+      padding: 0.7rem 1.5rem; cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    button:hover { transform: translateY(-2px); border-color: var(--violet); }
+
+    .btn-main {
+      background: linear-gradient(135deg, #0ea371, #10d9a0);
+      border: none;
+      box-shadow: 0 4px 20px rgba(16,217,160,0.35);
+      font-size: 1.05rem; padding: 0.8rem 2.2rem;
+      min-width: 180px;
+    }
+    .btn-reset { color: var(--muted2); }
+
+    .rate-group {
+      display: inline-flex; background: var(--card);
+      border: 1px solid var(--border); border-radius: 999px; padding: 0.25rem;
+      gap: 0.25rem;
+    }
+    .rate-group button {
+      border: none; background: transparent; padding: 0.5rem 1.1rem;
+      font-size: 0.88rem; color: var(--muted2);
+    }
+    .rate-group button.active {
+      background: linear-gradient(135deg, #6366f1, #818cf8);
+      color: #fff; box-shadow: 0 2px 12px rgba(129,140,248,0.4);
+    }
+
+    /* ── Stats ── */
+    .stats {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1rem; margin-bottom: 1.25rem;
+    }
+    @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+    .stat {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1.2rem; padding: 1.1rem 1rem; text-align: center;
+    }
+    .stat-label { font-size: 0.72rem; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.35rem; }
+    .stat-value { font-size: clamp(1.1rem, 2.4vw, 1.55rem); font-weight: 900; }
+    .stat-value.gold  { color: var(--gold); }
+    .stat-value.green { color: var(--green); }
+    .stat-value.blue  { color: var(--blue); }
+    .stat-sub { font-size: 0.72rem; color: var(--muted); margin-top: 0.25rem; }
+
+    /* ── Gráfico ── */
+    .chart-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1.2rem; padding: 1.3rem 1.5rem; margin-bottom: 1.5rem;
+    }
+    .chart-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.9rem; }
+    #chart { width: 100%; height: 190px; display: block; }
+    .chart-note { font-size: 0.78rem; color: var(--muted2); margin-top: 0.7rem; line-height: 1.5; }
+
+    /* ── Explicación ── */
+    .explain {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1.5rem; padding: 1.75rem;
+      margin-bottom: 1.5rem; line-height: 1.7;
+    }
+    .explain h2 { font-size: 1.2rem; margin-bottom: 0.8rem; }
+    .explain p { color: var(--muted2); font-size: 0.95rem; margin-bottom: 0.8rem; }
+    .explain p:last-of-type { margin-bottom: 0; }
+    .explain strong { color: var(--text); }
+    .explain .hl { color: var(--gold); font-weight: 700; }
+    .explain .hl-g { color: var(--green); font-weight: 700; }
+
+    .facts {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 0.8rem; margin-top: 1.2rem;
+    }
+    @media (max-width: 720px) { .facts { grid-template-columns: repeat(2, 1fr); } }
+    .fact {
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 1rem; padding: 0.9rem; text-align: center;
+    }
+    .fact .n { font-size: 1.25rem; font-weight: 900; color: var(--violet); }
+    .fact .d { font-size: 0.72rem; color: var(--muted2); margin-top: 0.2rem; line-height: 1.4; }
+
+    footer { text-align: center; color: var(--muted); font-size: 0.8rem; }
+    footer a { color: var(--violet); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <h1>💰 El interés compuesto en 3D</h1>
+    <p class="subtitle">
+      Dos personas invierten <strong>$1.000</strong> a la misma tasa. Una retira sus intereses cada año
+      (interés <em>simple</em>). La otra los <strong>reinvierte</strong> (interés <em>compuesto</em>).
+      Cada moneda vale $100. Mirá lo que pasa en 50 años.
+    </p>
+  </header>
+
+  <div class="scene-wrap">
+    <canvas id="scene"></canvas>
+    <div class="scene-hint">🖱️ arrastrá para girar la cámara</div>
+    <div class="year-display">Año <span id="year-num">0</span> / 50</div>
+    <div class="tower-label simple" id="label-simple"></div>
+    <div class="tower-label comp" id="label-comp"></div>
+    <div class="legend">
+      <span><i style="background:#4f7cff"></i>tu capital</span>
+      <span><i style="background:#10d9a0"></i>interés sobre el capital</span>
+      <span><i style="background:#ffd24a"></i>interés sobre intereses ✨</span>
+    </div>
+    <div class="result-banner" id="banner"></div>
+  </div>
+
+  <div class="timeline">
+    <span class="tl-label">Año 0</span>
+    <input type="range" id="slider" min="0" max="50" step="0.1" value="0">
+    <span class="tl-label">Año 50</span>
+  </div>
+
+  <div class="controls">
+    <button class="btn-main" id="btn-play">▶ Ver pasar 50 años</button>
+    <button id="btn-step">+1 año</button>
+    <div class="rate-group" id="rates">
+      <button data-rate="0.05">5%</button>
+      <button data-rate="0.10" class="active">10% anual</button>
+      <button data-rate="0.15">15%</button>
+    </div>
+    <button class="btn-reset" id="btn-reset">↺ Reiniciar</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Capital inicial</div>
+      <div class="stat-value blue">$1.000</div>
+      <div class="stat-sub">una sola vez, sin agregar nada</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Interés simple</div>
+      <div class="stat-value" id="stat-simple">$1.000</div>
+      <div class="stat-sub">retirando los intereses</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Interés compuesto</div>
+      <div class="stat-value gold" id="stat-comp">$1.000</div>
+      <div class="stat-sub" id="stat-mult">×1,0 tu capital</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Interés sobre intereses</div>
+      <div class="stat-value green" id="stat-gift">$0</div>
+      <div class="stat-sub">plata generada por la reinversión</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <h3>📈 La curva del palo de hockey</h3>
+    <canvas id="chart"></canvas>
+    <p class="chart-note">
+      La línea gris (simple) crece siempre igual: una recta. La dorada (compuesto) parece dormida
+      durante años… y de golpe despega. No cambió nada: es la misma tasa desde el día 1.
+      Lo que cambia es que <strong style="color:var(--text)">cada interés nuevo también empieza a generar intereses</strong>.
+    </p>
+  </div>
+
+  <div class="explain">
+    <h2>🧠 ¿Qué me está mostrando esto?</h2>
+    <p>
+      El interés compuesto es <strong>una bola de nieve</strong>: el primer año ganás interés solo sobre tu capital,
+      pero el segundo año ganás interés sobre el capital <em>y sobre el interés del año pasado</em>. Esa diferencia
+      parece insignificante… hasta que mirás la torre: al año 50 con 10% anual, las monedas
+      <span class="hl">doradas (interés sobre intereses)</span> son casi toda la torre. Tu capital original,
+      las azules, queda enterrado abajo como una anécdota.
+    </p>
+    <p>
+      La trampa psicológica es que <strong>los primeros años son aburridos</strong>. Al 10%, en 7 años apenas
+      duplicaste. La mayoría abandona ahí. Pero la curva no es lenta: es exponencial, y lo exponencial
+      <em>siempre</em> empieza pareciendo plano. Entre el año 43 y el 50 ganás <span class="hl-g">más que todo
+      lo acumulado en los primeros 30 años juntos</span>.
+    </p>
+    <p>
+      Un atajo mental: la <strong>regla del 72</strong>. Dividí 72 por la tasa anual y obtenés los años que
+      tarda tu plata en duplicarse. Al 10% → cada ~7 años. Y ojo: esta bola de nieve también rueda en contra.
+      Una deuda de tarjeta de crédito al 60% anual se duplica <strong>cada 14 meses</strong> — el interés
+      compuesto no pregunta de qué lado estás.
+    </p>
+    <div class="facts">
+      <div class="fact"><div class="n" id="fact-double">7,2 años</div><div class="d" id="fact-double-d">tarda en duplicarse al 10% (regla del 72)</div></div>
+      <div class="fact"><div class="n" id="fact-final">×117</div><div class="d" id="fact-final-d">se multiplica tu plata en 50 años al 10%</div></div>
+      <div class="fact"><div class="n" id="fact-simple-x">×6</div><div class="d" id="fact-simple-d">apenas, si retirás los intereses (simple)</div></div>
+      <div class="fact"><div class="n">14 meses</div><div class="d">tarda en duplicarse una deuda al 60% anual 😬</div></div>
+    </div>
+  </div>
+
+  <footer>
+    Hecho con Three.js · <a href="probabilidad.html">🎲 ver también: el 1% en 3D</a> · <a href="index.html">← volver al AI Lobotomy Index</a>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ───────────────────────── Parámetros ─────────────────────────
+  const C0 = 1000;          // capital inicial
+  const COIN = 100;         // valor de cada moneda
+  const MAX_YEARS = 50;
+  const LAYER_H = 0.135;    // alto de cada capa de monedas
+  const PER_LAYER = 7;      // monedas por capa (1 centro + 6 alrededor)
+  const PLAY_SPEED = 4;     // años por segundo
+
+  const COL_CAPITAL = new THREE.Color(0x4f7cff);
+  const COL_INTEREST = new THREE.Color(0x10d9a0);
+  const COL_GOLD = new THREE.Color(0xffd24a);
+
+  let rate = 0.10;
+  let year = 0;             // año mostrado (puede ser fraccionario)
+  let playing = false;
+  let nextDouble = 2;       // próximo hito de duplicación
+  let goldMilestoneShown = false;
+
+  const maxCoinsComp = Math.ceil(C0 * Math.pow(1.15, MAX_YEARS) / COIN) + 16;
+  const maxCoinsSimp = Math.ceil(C0 * (1 + 0.15 * MAX_YEARS) / COIN) + 16;
+
+  // ───────────────────────── Escena ─────────────────────────
+  const canvas = document.getElementById('scene');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 3000);
+
+  scene.add(new THREE.AmbientLight(0x9098c8, 0.75));
+  const key = new THREE.DirectionalLight(0xffffff, 1.5);
+  key.position.set(10, 20, 14);
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0x818cf8, 0.5);
+  fill.position.set(-12, 6, -8);
+  scene.add(fill);
+
+  // Piso
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(60, 64),
+    new THREE.MeshStandardMaterial({ color: 0x0c0c1c, roughness: 0.9, metalness: 0.1 })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  scene.add(floor);
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(2.0, 2.12, 64),
+    new THREE.MeshBasicMaterial({ color: 0x2a2a50, side: THREE.DoubleSide })
+  );
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.01;
+  scene.add(ring);
+  const ring2 = ring.clone();
+  scene.add(ring2);
+
+  // Torres de monedas instanciadas
+  const SIMPLE_X = -3.1, COMP_X = 3.1;
+  ring.position.x = SIMPLE_X;
+  ring2.position.x = COMP_X;
+
+  const coinGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.115, 26);
+  const coinMat = new THREE.MeshStandardMaterial({ roughness: 0.32, metalness: 0.6 });
+
+  function buildTower(maxCoins, xOffset) {
+    const mesh = new THREE.InstancedMesh(coinGeo, coinMat.clone(), maxCoins);
+    const m = new THREE.Matrix4();
+    const ringR = 0.74;
+    for (let i = 0; i < maxCoins; i++) {
+      const layer = Math.floor(i / PER_LAYER);
+      const slot = i % PER_LAYER;
+      let x = 0, z = 0;
+      if (slot > 0) {
+        const a = (slot - 1) * Math.PI / 3 + layer * 0.18;
+        x = Math.cos(a) * ringR;
+        z = Math.sin(a) * ringR;
+      }
+      m.makeRotationY(layer * 0.18);
+      m.setPosition(xOffset + x, layer * LAYER_H + LAYER_H / 2, z);
+      mesh.setMatrixAt(i, m);
+      mesh.setColorAt(i, COL_GOLD);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.count = 0;
+    scene.add(mesh);
+    return mesh;
+  }
+
+  const simpleTower = buildTower(maxCoinsSimp, SIMPLE_X);
+  const compTower = buildTower(maxCoinsComp, COMP_X);
+
+  // ───────────────────────── Cálculo y pintado de torres ─────────────────────────
+  function compoundAt(y) { return C0 * Math.pow(1 + rate, y); }
+  function simpleAt(y) { return C0 * (1 + rate * y); }
+
+  let lastSig = '';
+  function updateTowers() {
+    const comp = compoundAt(year);
+    const simp = simpleAt(year);
+
+    const capCoins = Math.round(C0 / COIN);
+    const simpCoins = Math.max(capCoins, Math.round(simp / COIN));
+    const compCoins = Math.max(capCoins, Math.round(comp / COIN));
+    const greenCoins = Math.min(Math.round((simp - C0) / COIN), compCoins - capCoins);
+    const goldCoins = Math.max(0, compCoins - capCoins - greenCoins);
+
+    const sig = compCoins + '|' + greenCoins + '|' + simpCoins;
+    if (sig !== lastSig) {
+      lastSig = sig;
+
+      simpleTower.count = simpCoins;
+      for (let i = 0; i < simpCoins; i++) {
+        simpleTower.setColorAt(i, i < capCoins ? COL_CAPITAL : COL_INTEREST);
+      }
+      simpleTower.instanceColor.needsUpdate = true;
+
+      compTower.count = compCoins;
+      for (let i = 0; i < compCoins; i++) {
+        compTower.setColorAt(i, i < capCoins ? COL_CAPITAL : (i < capCoins + greenCoins ? COL_INTEREST : COL_GOLD));
+      }
+      compTower.instanceColor.needsUpdate = true;
+    }
+
+    return { comp, simp, compCoins, goldCoins, greenCoins };
+  }
+
+  // ───────────────────────── UI ─────────────────────────
+  const $ = id => document.getElementById(id);
+  const fmt = v => '$' + Math.round(v).toLocaleString('es-AR');
+  const banner = $('banner');
+  let bannerTimer = null;
+
+  function showBanner(text) {
+    banner.innerHTML = text;
+    banner.classList.add('show');
+    clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(() => banner.classList.remove('show'), 2600);
+  }
+
+  function updateStats(s) {
+    $('year-num').textContent = Math.floor(year + 1e-6);
+    $('stat-simple').textContent = fmt(s.simp);
+    $('stat-comp').textContent = fmt(s.comp);
+    $('stat-mult').textContent = '×' + (s.comp / C0).toLocaleString('es-AR', { maximumFractionDigits: 1 }) + ' tu capital';
+    $('stat-gift').textContent = fmt(Math.max(0, s.comp - s.simp));
+    $('slider').value = year;
+  }
+
+  function checkMilestones(s) {
+    const mult = s.comp / C0;
+    while (mult >= nextDouble && nextDouble <= 128) {
+      showBanner('🔥 ¡×' + nextDouble + '! Tu plata se ' + (nextDouble === 2 ? 'duplicó' : 'multiplicó por ' + nextDouble) +
+        ' en el año ' + Math.ceil(year));
+      nextDouble *= 2;
+    }
+    if (!goldMilestoneShown && s.goldCoins > s.greenCoins + Math.round(C0 / COIN)) {
+      goldMilestoneShown = true;
+      showBanner('✨ El interés sobre intereses ya genera más que tu capital y el interés simple juntos');
+    }
+  }
+
+  function syncMilestonesToYear() {
+    const mult = compoundAt(year) / C0;
+    nextDouble = 2;
+    while (nextDouble <= mult) nextDouble *= 2;
+    goldMilestoneShown = false;
+    banner.classList.remove('show');
+  }
+
+  // Hechos dinámicos según la tasa
+  function updateFacts() {
+    const pct = rate * 100;
+    const dbl = 72 / pct;
+    $('fact-double').textContent = dbl.toLocaleString('es-AR', { maximumFractionDigits: 1 }) + ' años';
+    $('fact-double-d').textContent = 'tarda en duplicarse al ' + pct + '% (regla del 72)';
+    $('fact-final').textContent = '×' + Math.round(Math.pow(1 + rate, MAX_YEARS));
+    $('fact-final-d').textContent = 'se multiplica tu plata en 50 años al ' + pct + '%';
+    $('fact-simple-x').textContent = '×' + (1 + rate * MAX_YEARS).toLocaleString('es-AR', { maximumFractionDigits: 1 });
+  }
+
+  // ───────────────────────── Gráfico 2D ─────────────────────────
+  const chart = $('chart');
+  const ctx = chart.getContext('2d');
+
+  function drawChart() {
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    const w = chart.clientWidth, h = chart.clientHeight;
+    if (chart.width !== w * dpr) { chart.width = w * dpr; chart.height = h * dpr; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const pad = { l: 8, r: 8, t: 10, b: 18 };
+    const maxV = compoundAt(MAX_YEARS);
+    const X = y => pad.l + (y / MAX_YEARS) * (w - pad.l - pad.r);
+    const Y = v => h - pad.b - (v / maxV) * (h - pad.t - pad.b);
+
+    // grilla
+    ctx.strokeStyle = '#1c1c35'; ctx.lineWidth = 1;
+    for (let gy = 0; gy <= 4; gy++) {
+      const yy = pad.t + gy * (h - pad.t - pad.b) / 4;
+      ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(w - pad.r, yy); ctx.stroke();
+    }
+    ctx.fillStyle = '#4a5568'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    for (let yl = 0; yl <= MAX_YEARS; yl += 10) ctx.fillText('año ' + yl, X(yl), h - 4);
+
+    // simple (recta gris)
+    ctx.strokeStyle = '#718096'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(X(0), Y(simpleAt(0))); ctx.lineTo(X(MAX_YEARS), Y(simpleAt(MAX_YEARS))); ctx.stroke();
+
+    // compuesto (curva dorada)
+    ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (let y = 0; y <= MAX_YEARS; y += 0.5) {
+      const px = X(y), py = Y(compoundAt(y));
+      y === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // punto actual
+    ctx.fillStyle = '#ffd24a';
+    ctx.beginPath(); ctx.arc(X(year), Y(compoundAt(year)), 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#718096';
+    ctx.beginPath(); ctx.arc(X(year), Y(simpleAt(year)), 4, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // ───────────────────────── Etiquetas sobre las torres ─────────────────────────
+  const tmpV = new THREE.Vector3();
+  function placeLabel(el, x, topY, html) {
+    el.innerHTML = html;
+    tmpV.set(x, topY + 1.2, 0).project(camera);
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (tmpV.z > 1) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.style.left = ((tmpV.x * 0.5 + 0.5) * w) + 'px';
+    el.style.top = ((-tmpV.y * 0.5 + 0.5) * h) + 'px';
+  }
+
+  // ───────────────────────── Controles ─────────────────────────
+  const btnPlay = $('btn-play');
+
+  function setPlaying(p) {
+    playing = p;
+    btnPlay.textContent = p ? '⏸ Pausa' : (year >= MAX_YEARS ? '▶ Ver de nuevo' : '▶ Ver pasar 50 años');
+  }
+
+  btnPlay.addEventListener('click', () => {
+    if (!playing && year >= MAX_YEARS) { year = 0; syncMilestonesToYear(); }
+    setPlaying(!playing);
+  });
+  $('btn-step').addEventListener('click', () => {
+    setPlaying(false);
+    year = Math.min(Math.floor(year + 1e-6) + 1, MAX_YEARS);
+    syncMilestonesToYear();
+  });
+  $('btn-reset').addEventListener('click', () => {
+    setPlaying(false);
+    year = 0;
+    syncMilestonesToYear();
+  });
+  $('slider').addEventListener('input', e => {
+    setPlaying(false);
+    year = parseFloat(e.target.value);
+    syncMilestonesToYear();
+  });
+  document.querySelectorAll('#rates button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#rates button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      rate = parseFloat(b.dataset.rate);
+      syncMilestonesToYear();
+      updateFacts();
+    });
+  });
+
+  // Cámara orbital con arrastre
+  let dragging = false, lastX = 0, lastY = 0;
+  let theta = 0.35, phiOff = 0, autoSpin = 0.06;
+  canvas.addEventListener('pointerdown', e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
+  window.addEventListener('pointerup', () => { dragging = false; });
+  window.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    theta += (e.clientX - lastX) * 0.005;
+    phiOff += (e.clientY - lastY) * 0.003;
+    phiOff = Math.max(-0.4, Math.min(0.5, phiOff));
+    lastX = e.clientX; lastY = e.clientY;
+  });
+
+  function resize() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (canvas.width !== Math.floor(w * renderer.getPixelRatio())) {
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+  }
+  window.addEventListener('resize', resize);
+
+  // ───────────────────────── Loop ─────────────────────────
+  let camDist = 16, camH = 6, lookY = 3;
+  let prevT = performance.now();
+
+  function animate(now) {
+    requestAnimationFrame(animate);
+    const dt = Math.min((now - prevT) / 1000, 0.05);
+    prevT = now;
+    resize();
+
+    if (playing) {
+      year += dt * PLAY_SPEED;
+      if (year >= MAX_YEARS) { year = MAX_YEARS; setPlaying(false); }
+    }
+
+    const s = updateTowers();
+    updateStats(s);
+    if (playing) checkMilestones(s);
+    drawChart();
+
+    // Encuadre: la cámara se aleja a medida que crece la torre compuesta
+    const topH = Math.ceil(s.compCoins / PER_LAYER) * LAYER_H;
+    const targetDist = Math.max(15, topH * 1.05 + 12);
+    const targetH = Math.max(6, topH * 0.62 + 3);
+    const targetLook = Math.max(2.5, topH * 0.45);
+    const k = Math.min(dt * 2.2, 1);
+    camDist += (targetDist - camDist) * k;
+    camH += (targetH - camH) * k;
+    lookY += (targetLook - lookY) * k;
+
+    if (!dragging) theta += autoSpin * dt;
+    camera.position.set(
+      Math.sin(theta) * camDist,
+      camH + phiOff * camDist,
+      Math.cos(theta) * camDist
+    );
+    camera.lookAt(0, lookY, 0);
+
+    // Etiquetas flotantes
+    const simpTop = Math.ceil(simpleTower.count / PER_LAYER) * LAYER_H;
+    placeLabel($('label-simple'), SIMPLE_X, simpTop,
+      'Simple<br><span class="amt">' + fmt(s.simp) + '</span>');
+    placeLabel($('label-comp'), COMP_X, topH,
+      'Compuesto<br><span class="amt">' + fmt(s.comp) + '</span><br><span class="mult">×' +
+      (s.comp / C0).toLocaleString('es-AR', { maximumFractionDigits: 1 }) + '</span>');
+
+    renderer.render(scene, camera);
+  }
+
+  updateFacts();
+  requestAnimationFrame(animate);
+})();
+</script>
+
+</body>
+</html>
