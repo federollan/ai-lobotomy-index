@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta property="og:title" content="Agujeros negros y relatividad en 3D 🕳️">
+  <meta property="og:description" content="Deformá la tela del espacio-tiempo, lanzá pelotitas y luz, mirá nacer un agujero negro y jugá con la dilatación del tiempo.">
+  <title>🕳️ Agujeros negros en 3D — la tela del espacio-tiempo</title>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <style>
+    :root {
+      --bg: #07070f;
+      --card: #0f0f1e;
+      --card2: #13132a;
+      --border: #1c1c35;
+      --gold: #ffd24a;
+      --green: #10d9a0;
+      --violet: #818cf8;
+      --blue: #4f7cff;
+      --red: #ff4d6d;
+      --orange: #ff9f43;
+      --text: #e2e8f0;
+      --muted: #4a5568;
+      --muted2: #718096;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .container { max-width: 1120px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    header { text-align: center; margin-bottom: 2rem; }
+
+    h1 {
+      font-size: clamp(1.7rem, 5vw, 2.8rem);
+      font-weight: 900;
+      background: linear-gradient(135deg, #ff9f43 0%, #818cf8 50%, #4f7cff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      color: var(--muted2); font-size: 1rem;
+      max-width: 640px; margin: 0.6rem auto 0; line-height: 1.6;
+    }
+    .subtitle strong { color: var(--text); }
+
+    .section-tag {
+      display: inline-block;
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--violet);
+      background: rgba(129,140,248,0.1); border: 1px solid rgba(129,140,248,0.3);
+      border-radius: 999px; padding: 0.3rem 0.9rem; margin-bottom: 0.8rem;
+    }
+
+    section { margin-bottom: 2.5rem; }
+    section > h2 { font-size: 1.35rem; margin-bottom: 0.5rem; }
+    section > .lead { color: var(--muted2); font-size: 0.95rem; line-height: 1.65; max-width: 760px; margin-bottom: 1.2rem; }
+    section > .lead strong { color: var(--text); }
+
+    /* ── Escena ── */
+    .scene-wrap {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 1.5rem;
+      overflow: hidden;
+      background: radial-gradient(ellipse at 50% 30%, #0c0c1e 0%, #05050c 70%);
+      height: min(64vh, 580px);
+      margin-bottom: 1rem;
+      touch-action: none;
+    }
+    #scene { width: 100%; height: 100%; display: block; cursor: grab; }
+    #scene:active { cursor: grabbing; }
+
+    .scene-hint {
+      position: absolute; top: 0.9rem; left: 1rem;
+      font-size: 0.75rem; color: var(--muted2);
+      background: rgba(15,15,30,0.7); border: 1px solid var(--border);
+      border-radius: 999px; padding: 0.3rem 0.8rem;
+      pointer-events: none; backdrop-filter: blur(4px);
+    }
+
+    .regime-display {
+      position: absolute; top: 0.75rem; right: 1rem;
+      max-width: 300px;
+      background: rgba(15,15,30,0.78); border: 1px solid var(--border);
+      border-radius: 0.9rem; padding: 0.6rem 1rem;
+      pointer-events: none; backdrop-filter: blur(4px);
+      text-align: right;
+    }
+    .regime-display .rn { font-size: 1.05rem; font-weight: 900; }
+    .regime-display .rd { font-size: 0.72rem; color: var(--muted2); line-height: 1.45; margin-top: 0.15rem; }
+
+    .counters {
+      position: absolute; bottom: 0.9rem; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 0.9rem; flex-wrap: wrap; justify-content: center;
+      font-size: 0.78rem; font-weight: 700;
+      background: rgba(15,15,30,0.78); border: 1px solid var(--border);
+      border-radius: 999px; padding: 0.45rem 1.1rem;
+      pointer-events: none; backdrop-filter: blur(4px);
+    }
+    .counters b { font-weight: 900; }
+
+    .result-banner {
+      position: absolute; top: 22%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.85);
+      font-size: clamp(0.95rem, 2.4vw, 1.4rem);
+      font-weight: 900;
+      padding: 0.6rem 1.4rem; border-radius: 1rem;
+      pointer-events: none; opacity: 0;
+      transition: opacity 0.25s, transform 0.25s;
+      backdrop-filter: blur(6px); text-align: center;
+      color: var(--orange);
+      background: rgba(255,159,67,0.1);
+      border: 1px solid rgba(255,159,67,0.45);
+      text-shadow: 0 0 24px rgba(255,159,67,0.6);
+      max-width: 88%;
+    }
+    .result-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+    /* ── Controles ── */
+    .mass-control {
+      display: flex; align-items: center; gap: 1rem;
+      margin-bottom: 1rem; padding: 0 0.25rem;
+    }
+    .mass-control .lbl { font-size: 0.8rem; color: var(--muted2); white-space: nowrap; }
+    .mass-control input[type=range] { flex: 1; accent-color: #ff9f43; height: 6px; cursor: pointer; }
+
+    .controls {
+      display: flex; justify-content: center; align-items: center;
+      gap: 0.7rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+    }
+
+    button {
+      font-family: inherit; font-size: 0.95rem; font-weight: 700;
+      color: var(--text); background: var(--card2);
+      border: 1px solid var(--border); border-radius: 999px;
+      padding: 0.7rem 1.5rem; cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s, opacity 0.15s;
+    }
+    button:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--violet); }
+
+    .btn-main {
+      background: linear-gradient(135deg, #6366f1, #818cf8);
+      border: none; box-shadow: 0 4px 20px rgba(129,140,248,0.35);
+    }
+    .btn-light {
+      background: linear-gradient(135deg, #d4a017, #ffd24a);
+      border: none; color: #1a1a05;
+      box-shadow: 0 4px 20px rgba(255,210,74,0.3);
+    }
+    .btn-reset { color: var(--muted2); }
+
+    /* ── Relojes ── */
+    .clock-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1.5rem; padding: 1.6rem;
+    }
+    .clocks-row {
+      display: flex; justify-content: space-around; align-items: flex-start;
+      gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.3rem;
+    }
+    .clock-block { text-align: center; }
+    .clock-face {
+      width: 110px; height: 110px; border-radius: 50%;
+      background: var(--card2); border: 2px solid var(--border);
+      position: relative; margin: 0 auto 0.6rem;
+    }
+    .clock-face .tick {
+      position: absolute; width: 2px; height: 7px;
+      background: var(--muted); left: 50%; top: 4px;
+      transform-origin: 50% 51px;
+    }
+    .clock-hand {
+      position: absolute; width: 3px; height: 40px;
+      left: 50%; top: 15px; margin-left: -1.5px;
+      transform-origin: 50% 100%;
+      border-radius: 2px;
+    }
+    .clock-hand.far { background: var(--green); box-shadow: 0 0 10px rgba(16,217,160,0.6); }
+    .clock-hand.near { background: var(--orange); box-shadow: 0 0 10px rgba(255,159,67,0.6); }
+    .clock-face .pin {
+      position: absolute; width: 8px; height: 8px; border-radius: 50%;
+      background: var(--text); left: 50%; top: 50%; transform: translate(-50%, -50%);
+    }
+    .clock-name { font-size: 0.85rem; font-weight: 700; margin-bottom: 0.2rem; }
+    .clock-days { font-size: 1.25rem; font-weight: 900; }
+    .clock-days.far { color: var(--green); }
+    .clock-days.near { color: var(--orange); }
+    .clock-sub { font-size: 0.72rem; color: var(--muted); }
+
+    .dist-control {
+      display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;
+    }
+    .dist-control .lbl { font-size: 0.8rem; color: var(--muted2); white-space: nowrap; }
+    .dist-control input[type=range] { flex: 1; accent-color: #ff9f43; height: 6px; cursor: pointer; }
+
+    .dilation-text {
+      text-align: center; font-size: 0.95rem; color: var(--muted2); line-height: 1.65;
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 1rem; padding: 1rem 1.2rem;
+    }
+    .dilation-text strong { color: var(--gold); }
+    .dilation-text .pct { font-size: 1.3rem; font-weight: 900; color: var(--orange); }
+
+    /* ── Explicación ── */
+    .explain {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1.5rem; padding: 1.75rem; line-height: 1.7;
+    }
+    .explain h2 { font-size: 1.2rem; margin-bottom: 0.8rem; }
+    .explain p { color: var(--muted2); font-size: 0.95rem; margin-bottom: 0.8rem; }
+    .explain p:last-of-type { margin-bottom: 0; }
+    .explain strong { color: var(--text); }
+    .explain .hl { color: var(--gold); font-weight: 700; }
+    .explain .hl-o { color: var(--orange); font-weight: 700; }
+    .explain .hl-v { color: var(--violet); font-weight: 700; }
+
+    .facts {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 0.8rem; margin-top: 1.2rem;
+    }
+    @media (max-width: 720px) { .facts { grid-template-columns: repeat(2, 1fr); } }
+    .fact {
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 1rem; padding: 0.9rem; text-align: center;
+    }
+    .fact .n { font-size: 1.15rem; font-weight: 900; color: var(--violet); }
+    .fact .d { font-size: 0.72rem; color: var(--muted2); margin-top: 0.25rem; line-height: 1.4; }
+
+    footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 2rem; }
+    footer a { color: var(--violet); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <h1>🕳️ Agujeros negros y la tela del espacio-tiempo</h1>
+    <p class="subtitle">
+      Einstein, 1915: la gravedad <strong>no es una fuerza</strong>. La masa hunde la tela del
+      espacio-tiempo, y las cosas simplemente <strong>siguen la curva</strong>. Acá podés hundirla vos.
+    </p>
+  </header>
+
+  <!-- ════════ 1. LA TELA ════════ -->
+  <section>
+    <div class="section-tag">Nivel 1 · La tela</div>
+    <h2>Deformá el espacio-tiempo</h2>
+    <p class="lead">
+      Movè el deslizador para <strong>comprimir más y más masa</strong> en el centro: planeta → estrella →
+      estrella de neutrones → <strong>colapso</strong>. Lanzá pelotitas 🪐 y rayos de luz 💡 y mirá cómo
+      siguen la curvatura: orbitan, escapan… o cruzan el horizonte y no vuelven nunca.
+    </p>
+
+    <div class="scene-wrap">
+      <canvas id="scene"></canvas>
+      <div class="scene-hint">🖱️ arrastrá para girar</div>
+      <div class="regime-display">
+        <div class="rn" id="regime-name">☀️ Estrella</div>
+        <div class="rd" id="regime-desc">como el Sol: su pozo mantiene planetas en órbita estable</div>
+      </div>
+      <div class="counters">
+        <span>🛸 en órbita: <b id="c-orbit">0</b></span>
+        <span>🕳️ devoradas: <b id="c-eaten" style="color:var(--orange)">0</b></span>
+        <span>🚀 escaparon: <b id="c-escaped" style="color:var(--green)">0</b></span>
+      </div>
+      <div class="result-banner" id="banner"></div>
+    </div>
+
+    <div class="mass-control">
+      <span class="lbl">🌍 planeta</span>
+      <input type="range" id="mass-slider" min="0" max="100" step="0.5" value="40">
+      <span class="lbl">agujero negro 🕳️</span>
+    </div>
+
+    <div class="controls">
+      <button class="btn-main" id="btn-ball">🪐 Lanzar pelotita</button>
+      <button id="btn-ball5">✨ Lanzar 5</button>
+      <button class="btn-light" id="btn-photon">💡 Rayo de luz</button>
+      <button class="btn-reset" id="btn-clear">🧹 Despejar</button>
+    </div>
+  </section>
+
+  <!-- ════════ 2. DILATACIÓN ════════ -->
+  <section>
+    <div class="section-tag">Nivel 2 · El tiempo</div>
+    <h2>Tu gemelo cerca del agujero negro</h2>
+    <p class="lead">
+      La curvatura no deforma solo el espacio: <strong>también el tiempo</strong>. Cuanto más cerca
+      del agujero negro estás, más lento corre tu reloj — visto desde lejos. Acercá a tu gemelo
+      con el deslizador y mirá los dos relojes en vivo.
+    </p>
+
+    <div class="clock-card">
+      <div class="clocks-row">
+        <div class="clock-block">
+          <div class="clock-face" id="clock-far"><div class="clock-hand far" id="hand-far"></div><div class="pin"></div></div>
+          <div class="clock-name">🛰️ VOS, lejos y a salvo</div>
+          <div class="clock-days far" id="days-far">0,0</div>
+          <div class="clock-sub">días vividos</div>
+        </div>
+        <div class="clock-block">
+          <div class="clock-face" id="clock-near"><div class="clock-hand near" id="hand-near"></div><div class="pin"></div></div>
+          <div class="clock-name">🧑‍🚀 TU GEMELO, cerca del horizonte</div>
+          <div class="clock-days near" id="days-near">0,0</div>
+          <div class="clock-sub">días vividos</div>
+        </div>
+      </div>
+
+      <div class="dist-control">
+        <span class="lbl">🕳️ pegado al horizonte</span>
+        <input type="range" id="r-slider" min="1.02" max="8" step="0.01" value="3">
+        <span class="lbl">bien lejos 🛰️</span>
+      </div>
+
+      <div class="dilation-text" id="dilation-text"></div>
+    </div>
+  </section>
+
+  <!-- ════════ 3. EXPLICACIÓN ════════ -->
+  <section>
+    <div class="explain">
+      <h2>🧠 Lo que acabás de ver, en serio</h2>
+      <p>
+        <strong>1. La gravedad es geometría.</strong> Newton imaginaba una fuerza invisible tirando de las
+        cosas. Einstein mostró algo más raro y más simple: <span class="hl-v">"la materia le dice al
+        espacio-tiempo cómo curvarse; el espacio-tiempo le dice a la materia cómo moverse"</span> (John
+        Wheeler). Tus pelotitas no sienten ninguna fuerza: van "derecho", pero derecho <em>en una tela
+        curvada</em> es una órbita. La Luna no es atraída por la Tierra: cae eternamente por la hondonada
+        que la Tierra hace en la tela.
+      </p>
+      <p>
+        <strong>2. Un agujero negro no es un aspirador: es un pozo sin fondo.</strong> Cualquier masa tiene
+        un <span class="hl-o">radio de Schwarzschild</span>: si la comprimís por debajo de ese tamaño, la
+        curvatura se vuelve tan extrema que ninguna trayectoria vuelve a salir — ni siquiera la de la luz.
+        Para la Tierra son <strong>9 milímetros</strong>; para el Sol, 3 km. El borde se llama
+        <strong>horizonte de eventos</strong>: no es una superficie sólida, es el punto de no retorno.
+        El anillo naranja que viste es el <strong>disco de acreción</strong>: materia girando a casi la
+        velocidad de la luz, calentada a millones de grados, antes de caer.
+      </p>
+      <p>
+        <strong>3. El tiempo es local.</strong> No existe un reloj universal: cada quien lleva el suyo, y
+        la gravedad lo frena. No es una ilusión ni un efecto del reloj: <span class="hl">es el tiempo
+        mismo</span>. Tu GPS lo corrige todos los días: los satélites, más lejos de la Tierra, viven
+        38 microsegundos diarios más rápido que vos — sin esa corrección relativista, los mapas errarían
+        por 10 km al día. En <em>Interstellar</em>, 1 hora en el planeta de Miller = 7 años afuera: exagerado
+        pero matemáticamente legal, pegadito a un agujero negro giratorio.
+      </p>
+      <p>
+        <strong>4. Nada de esto es teoría en el aire.</strong> En 2015, LIGO <em>escuchó</em> las ondas
+        gravitacionales de dos agujeros negros fusionándose: la tela vibrando, mil millones de años después.
+        En 2019 le sacamos la primera foto a uno (M87*), y en 2022 al nuestro: <strong>Sagitario A*</strong>,
+        4,3 millones de masas solares en el centro de la Vía Láctea. Toda estrella que ves gira alrededor
+        de esa hondonada.
+      </p>
+      <div class="facts">
+        <div class="fact"><div class="n">9 mm</div><div class="d">comprimí la Tierra a ese tamaño y se vuelve agujero negro</div></div>
+        <div class="fact"><div class="n">38 μs/día</div><div class="d">lo que tu GPS corrige por relatividad para no perderse</div></div>
+        <div class="fact"><div class="n">2015 · LIGO</div><div class="d">primera onda gravitacional detectada (Nobel 2017)</div></div>
+        <div class="fact"><div class="n">4,3M ☀️</div><div class="d">masas solares tiene Sagitario A*, el agujero del centro de nuestra galaxia</div></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Hecho con Three.js · <a href="probabilidad.html">🎲 el 1% en 3D</a> · <a href="interes-compuesto.html">💰 interés compuesto</a> · <a href="teoria-de-juegos.html">🎮 teoría de juegos</a> · <a href="index.html">← AI Lobotomy Index</a>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+
+  // ═════════════ Escena base ═════════════
+  const canvas = $('scene');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x05050c, 26, 48);
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+  camera.position.set(0, 10.5, 17);
+  camera.lookAt(0, -2, 0);
+
+  scene.add(new THREE.AmbientLight(0x8890c0, 0.55));
+  const topLight = new THREE.DirectionalLight(0xaab0ff, 0.5);
+  topLight.position.set(5, 12, 8);
+  scene.add(topLight);
+  const centerLight = new THREE.PointLight(0xffd24a, 30, 40);
+  centerLight.position.set(0, 1.5, 0);
+  scene.add(centerLight);
+
+  const world = new THREE.Group();
+  scene.add(world);
+
+  // Estrellas de fondo
+  {
+    const starGeo = new THREE.BufferGeometry();
+    const sp = new Float32Array(400 * 3);
+    for (let i = 0; i < 400; i++) {
+      const v = new THREE.Vector3().randomDirection().multiplyScalar(60 + Math.random() * 60);
+      sp[i * 3] = v.x; sp[i * 3 + 1] = Math.abs(v.y) * 0.7 + 4; sp[i * 3 + 2] = v.z;
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+    scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x8890c0, size: 0.22, transparent: true, opacity: 0.7 })));
+  }
+
+  // ═════════════ La grilla deformable ═════════════
+  const HALF = 16, STEP = 0.8;
+  const NLINES = Math.round(HALF * 2 / STEP) + 1; // 41
+
+  // un endpoint por extremo de segmento, filas + columnas
+  const segCount = (NLINES - 1) * NLINES * 2;
+  const gridPos = new Float32Array(segCount * 2 * 3);
+  const gridCol = new Float32Array(segCount * 2 * 3);
+  const gridXZ = []; // [x,z] de cada endpoint
+
+  function pushPoint(x, z) { gridXZ.push(x, z); }
+  for (let r = 0; r < NLINES; r++) {       // líneas a lo largo de X
+    const z = -HALF + r * STEP;
+    for (let c = 0; c < NLINES - 1; c++) {
+      pushPoint(-HALF + c * STEP, z);
+      pushPoint(-HALF + (c + 1) * STEP, z);
+    }
+  }
+  for (let c = 0; c < NLINES; c++) {       // líneas a lo largo de Z
+    const x = -HALF + c * STEP;
+    for (let r = 0; r < NLINES - 1; r++) {
+      pushPoint(x, -HALF + r * STEP);
+      pushPoint(x, -HALF + (r + 1) * STEP);
+    }
+  }
+
+  const gridGeo = new THREE.BufferGeometry();
+  gridGeo.setAttribute('position', new THREE.BufferAttribute(gridPos, 3));
+  gridGeo.setAttribute('color', new THREE.BufferAttribute(gridCol, 3));
+  const grid = new THREE.LineSegments(gridGeo,
+    new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85 }));
+  world.add(grid);
+
+  const C_LOW = new THREE.Color(0x23234a);
+  const C_HIGH = new THREE.Color(0x8a93ff);
+  const tmpC = new THREE.Color();
+
+  // Pozo gravitatorio: y = -A·w / sqrt(r² + w²)
+  let A = 1, W = 3, GM = 6;          // valores actuales (animados)
+  let tA = 1, tW = 3;                // objetivos
+
+  function wellY(r) { return -A * W / Math.sqrt(r * r + W * W); }
+
+  function updateGrid() {
+    const n = gridXZ.length / 2;
+    for (let i = 0; i < n; i++) {
+      const x = gridXZ[i * 2], z = gridXZ[i * 2 + 1];
+      const y = wellY(Math.hypot(x, z));
+      gridPos[i * 3] = x; gridPos[i * 3 + 1] = y; gridPos[i * 3 + 2] = z;
+      const t = Math.min(y / -Math.max(A, 0.001), 1);
+      tmpC.lerpColors(C_LOW, C_HIGH, Math.pow(t, 0.7));
+      gridCol[i * 3] = tmpC.r; gridCol[i * 3 + 1] = tmpC.g; gridCol[i * 3 + 2] = tmpC.b;
+    }
+    gridGeo.attributes.position.needsUpdate = true;
+    gridGeo.attributes.color.needsUpdate = true;
+  }
+
+  // ═════════════ Cuerpo central y regímenes ═════════════
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffc94d, emissive: 0xffaa22, emissiveIntensity: 0.8, roughness: 0.5 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 24), bodyMat);
+  world.add(body);
+
+  // halo (sprite con gradiente radial)
+  function makeGlowTexture() {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+    grad.addColorStop(0.3, 'rgba(255,210,100,0.45)');
+    grad.addColorStop(1, 'rgba(255,160,50,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(c);
+  }
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeGlowTexture(), transparent: true, depthWrite: false }));
+  glow.scale.setScalar(6);
+  world.add(glow);
+
+  // disco de acreción (solo agujero negro)
+  const diskGroup = new THREE.Group();
+  const disk1 = new THREE.Mesh(
+    new THREE.RingGeometry(1.5, 3.1, 64),
+    new THREE.MeshBasicMaterial({ color: 0xff8c2e, transparent: true, opacity: 0, side: THREE.DoubleSide })
+  );
+  disk1.rotation.x = -Math.PI / 2;
+  const disk2 = new THREE.Mesh(
+    new THREE.RingGeometry(1.32, 1.62, 64),
+    new THREE.MeshBasicMaterial({ color: 0xffd24a, transparent: true, opacity: 0, side: THREE.DoubleSide })
+  );
+  disk2.rotation.x = -Math.PI / 2;
+  diskGroup.add(disk1, disk2);
+  world.add(diskGroup);
+
+  const REGIMES = [
+    { until: 0.22, name: '🌍 Planeta', desc: 'curva la tela apenas: una hondonada suave donde puede orbitar una luna' },
+    { until: 0.58, name: '☀️ Estrella', desc: 'como el Sol: su pozo mantiene planetas en órbita estable durante miles de millones de años' },
+    { until: 0.85, name: '💫 Estrella de neutrones', desc: 'la misma masa comprimida en una ciudad: una cucharadita pesa mil millones de toneladas' },
+    { until: 9.99, name: '🕳️ AGUJERO NEGRO', desc: 'el pozo ya no tiene fondo: ni la luz sale. El anillo naranja es materia cayendo a casi la velocidad de la luz' }
+  ];
+  let regimeIdx = 1;
+  let s = 0.4; // valor del deslizador 0..1
+
+  function regimeOf(v) { return REGIMES.findIndex(r => v <= r.until); }
+  const isBH = () => s > 0.85;
+  const horizonR = 1.15;
+
+  function applySlider(v) {
+    s = v;
+    tA = 0.6 + s * s * 15;
+    tW = 3.3 - 2.45 * s;
+    GM = 3 + 55 * s * s;
+    const ri = regimeOf(s);
+    if (ri !== regimeIdx) {
+      regimeIdx = ri;
+      $('regime-name').textContent = REGIMES[ri].name;
+      $('regime-desc').textContent = REGIMES[ri].desc;
+      if (ri === 3) showBanner('🕳️ COLAPSO: la masa cruzó su radio de Schwarzschild. Nació un agujero negro.');
+    }
+  }
+  $('mass-slider').addEventListener('input', e => applySlider(parseFloat(e.target.value) / 100));
+
+  function updateBodyVisual(dt) {
+    let radius, color, emissive, glowScale, glowOpacity, lightInt, lightColor;
+    if (s <= 0.22) { radius = 0.85; color = 0x3aa6a0; emissive = 0x1d5e60; glowScale = 3; glowOpacity = 0.5; lightInt = 6; lightColor = 0x66ccc0; }
+    else if (s <= 0.58) { radius = 1.55; color = 0xffc94d; emissive = 0xffaa22; glowScale = 6.5; glowOpacity = 0.95; lightInt = 30; lightColor = 0xffd24a; }
+    else if (s <= 0.85) { radius = 0.55; color = 0xeef2ff; emissive = 0xbfd0ff; glowScale = 4.5; glowOpacity = 1; lightInt = 40; lightColor = 0xcfdcff; }
+    else { radius = horizonR; color = 0x000000; emissive = 0x000000; glowScale = 0; glowOpacity = 0; lightInt = 22; lightColor = 0xff9f43; }
+
+    const k = Math.min(dt * 5, 1);
+    body.scale.lerp(new THREE.Vector3(radius, radius, radius), k);
+    bodyMat.color.lerp(new THREE.Color(color), k);
+    bodyMat.emissive.lerp(new THREE.Color(emissive), k);
+    glow.material.opacity += (glowOpacity - glow.material.opacity) * k;
+    glow.scale.lerp(new THREE.Vector3(glowScale || 0.01, glowScale || 0.01, 1), k);
+    centerLight.intensity += (lightInt - centerLight.intensity) * k;
+    centerLight.color.lerp(new THREE.Color(lightColor), k);
+
+    const diskTarget = isBH() ? 0.85 : 0;
+    disk1.material.opacity += (diskTarget - disk1.material.opacity) * k;
+    disk2.material.opacity += (diskTarget * 1.0 - disk2.material.opacity) * k;
+    diskGroup.rotation.y += dt * 1.5;
+    const dy = wellY(2.2) + 0.15;
+    diskGroup.position.y = dy;
+    body.position.y = wellY(0.6) + body.scale.x * 0.4;
+    glow.position.y = body.position.y;
+    centerLight.position.y = body.position.y + 1.2;
+  }
+
+  // ═════════════ Partículas (pelotitas y fotones) ═════════════
+  const MAX_PARTICLES = 26;
+  const TRAIL_N = 70;
+  const particles = [];
+  let eaten = 0, escaped = 0;
+
+  const ballGeo = new THREE.SphereGeometry(0.22, 14, 10);
+  const photonGeo = new THREE.SphereGeometry(0.13, 10, 8);
+
+  function spawnBall() {
+    if (particles.length >= MAX_PARTICLES) return;
+    const r = 7 + Math.random() * 6;
+    const ang = Math.random() * Math.PI * 2;
+    const px = Math.cos(ang) * r, pz = Math.sin(ang) * r;
+    const vCirc = Math.sqrt(GM / r);
+    const sp = vCirc * (0.78 + Math.random() * 0.5);
+    // velocidad tangencial con leve componente radial
+    const vx = -Math.sin(ang) * sp + (Math.random() - 0.5) * 0.4;
+    const vz = Math.cos(ang) * sp + (Math.random() - 0.5) * 0.4;
+    addParticle(px, pz, vx, vz, false);
+  }
+
+  function spawnPhoton() {
+    if (particles.length >= MAX_PARTICLES) return;
+    const b = (Math.random() * 4 + 1.6) * (Math.random() < 0.5 ? 1 : -1); // parámetro de impacto
+    addParticle(-15.5, b, 16, 0, true);
+  }
+
+  function addParticle(px, pz, vx, vz, photon) {
+    const hue = Math.random();
+    const color = photon ? new THREE.Color(0xfff7cc) : new THREE.Color().setHSL(hue, 0.75, 0.62);
+    const mesh = new THREE.Mesh(photon ? photonGeo : ballGeo,
+      new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: photon ? 1.4 : 0.45, roughness: 0.4 }));
+    world.add(mesh);
+
+    const trailGeo = new THREE.BufferGeometry();
+    trailGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL_N * 3), 3));
+    trailGeo.setDrawRange(0, 0);
+    const trail = new THREE.Line(trailGeo,
+      new THREE.LineBasicMaterial({ color, transparent: true, opacity: photon ? 0.65 : 0.45 }));
+    world.add(trail);
+
+    particles.push({ mesh, trail, trailGeo, pts: [], x: px, z: pz, vx, vz, photon, dead: false });
+  }
+
+  function removeParticle(p) {
+    p.dead = true;
+    world.remove(p.mesh);
+    world.remove(p.trail);
+    p.mesh.material.dispose();
+    p.trail.material.dispose();
+    p.trailGeo.dispose();
+  }
+
+  const banner = $('banner');
+  let bannerTimer = null;
+  let firstEat = true, firstPhotonEat = true;
+  function showBanner(text, ms) {
+    banner.innerHTML = text;
+    banner.classList.add('show');
+    clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(() => banner.classList.remove('show'), ms || 2800);
+  }
+
+  function updateCounters() {
+    $('c-orbit').textContent = particles.filter(p => !p.dead).length;
+    $('c-eaten').textContent = eaten;
+    $('c-escaped').textContent = escaped;
+  }
+
+  function stepParticles(dt) {
+    const captureR = isBH() ? horizonR * 1.05 : body.scale.x * 0.85 + 0.2;
+    const SUB = 4;
+    const h = dt / SUB;
+    for (const p of particles) {
+      if (p.dead) continue;
+      for (let k = 0; k < SUB; k++) {
+        const r2 = p.x * p.x + p.z * p.z;
+        const r = Math.sqrt(r2) || 0.001;
+        const a = -GM / (r2 * r);
+        p.vx += a * p.x * h;
+        p.vz += a * p.z * h;
+        p.x += p.vx * h;
+        p.z += p.vz * h;
+      }
+      const r = Math.hypot(p.x, p.z);
+
+      if (r < captureR) {
+        removeParticle(p);
+        if (isBH()) {
+          eaten++;
+          if (p.photon && firstPhotonEat) { firstPhotonEat = false; showBanner('💡 Ni la luz escapa: el rayo cruzó el horizonte de eventos'); }
+          else if (firstEat) { firstEat = false; showBanner('🕳️ ¡Devorada! Cruzó el horizonte: desde afuera, nunca la vas a ver terminar de caer'); }
+        } else {
+          eaten++;
+        }
+        updateCounters();
+        continue;
+      }
+      if (r > 30) {
+        removeParticle(p);
+        escaped++;
+        updateCounters();
+        continue;
+      }
+
+      const y = wellY(r) + 0.3;
+      p.mesh.position.set(p.x, y, p.z);
+
+      // estela
+      p.pts.push(p.x, y, p.z);
+      if (p.pts.length > TRAIL_N * 3) p.pts.splice(0, 3);
+      const arr = p.trailGeo.attributes.position.array;
+      arr.set(p.pts);
+      p.trailGeo.setDrawRange(0, p.pts.length / 3);
+      p.trailGeo.attributes.position.needsUpdate = true;
+    }
+    // limpiar muertas del array
+    for (let i = particles.length - 1; i >= 0; i--) {
+      if (particles[i].dead) particles.splice(i, 1);
+    }
+  }
+
+  $('btn-ball').addEventListener('click', () => { spawnBall(); updateCounters(); });
+  $('btn-ball5').addEventListener('click', () => { for (let i = 0; i < 5; i++) spawnBall(); updateCounters(); });
+  $('btn-photon').addEventListener('click', () => { spawnPhoton(); updateCounters(); });
+  $('btn-clear').addEventListener('click', () => {
+    particles.forEach(removeParticle);
+    particles.length = 0;
+    updateCounters();
+  });
+
+  // ═════════════ Interacción de cámara ═════════════
+  let dragging = false, lastX = 0, lastY = 0;
+  let rotY = 0.5, tilt = 0;
+  canvas.addEventListener('pointerdown', e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
+  window.addEventListener('pointerup', () => { dragging = false; });
+  window.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    rotY += (e.clientX - lastX) * 0.005;
+    tilt += (e.clientY - lastY) * 0.004;
+    tilt = Math.max(-0.25, Math.min(0.35, tilt));
+    lastX = e.clientX; lastY = e.clientY;
+  });
+
+  function resize() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (canvas.width !== Math.floor(w * renderer.getPixelRatio())) {
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+  }
+  window.addEventListener('resize', resize);
+
+  // ═════════════ Relojes gemelos ═════════════
+  // factor de dilatación gravitacional: sqrt(1 - rs/r), con r en unidades de rs
+  let rOverRs = 3;
+  let daysFar = 0, daysNear = 0;
+  let degFar = 0, degNear = 0;
+
+  // marcas de los relojes
+  ['clock-far', 'clock-near'].forEach(id => {
+    const face = $(id);
+    for (let i = 0; i < 12; i++) {
+      const t = document.createElement('div');
+      t.className = 'tick';
+      t.style.transform = 'translateX(-50%) rotate(' + (i * 30) + 'deg)';
+      face.appendChild(t);
+    }
+  });
+
+  function dilationFactor() { return Math.sqrt(Math.max(1 - 1 / rOverRs, 0)); }
+
+  function updateDilationText() {
+    const f = dilationFactor();
+    const pct = (f * 100).toLocaleString('es-AR', { maximumFractionDigits: 1 });
+    const years10 = 10 * f;
+    const y = Math.floor(years10);
+    const m = Math.round((years10 - y) * 12);
+    $('dilation-text').innerHTML =
+      'A ' + rOverRs.toLocaleString('es-AR', { maximumFractionDigits: 2 }) +
+      ' radios de Schwarzschild del centro, el reloj de tu gemelo corre al <span class="pct">' + pct +
+      '%</span> del tuyo.<br>Mientras vos envejecés <strong>10 años</strong>, él envejece <strong>' +
+      (y > 0 ? y + (y === 1 ? ' año' : ' años') : '') + (y > 0 && m > 0 ? ' y ' : '') +
+      (m > 0 ? m + (m === 1 ? ' mes' : ' meses') : (y === 0 ? 'casi nada' : '')) +
+      '</strong>. Cuando vuelva, será más joven que vos — de verdad.';
+  }
+
+  $('r-slider').addEventListener('input', e => {
+    rOverRs = parseFloat(e.target.value);
+    daysFar = 0; daysNear = 0;
+    updateDilationText();
+  });
+  updateDilationText();
+
+  function stepClocks(dt) {
+    const f = dilationFactor();
+    daysFar += dt * 2;          // 1 segundo real = 2 días vividos
+    daysNear += dt * 2 * f;
+    degFar += dt * 120;         // aguja: una vuelta cada 3 s
+    degNear += dt * 120 * f;
+    $('hand-far').style.transform = 'rotate(' + (degFar % 360) + 'deg)';
+    $('hand-near').style.transform = 'rotate(' + (degNear % 360) + 'deg)';
+    $('days-far').textContent = daysFar.toLocaleString('es-AR', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+    $('days-near').textContent = daysNear.toLocaleString('es-AR', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+  }
+
+  // ═════════════ Loop ═════════════
+  applySlider(0.4);
+  for (let i = 0; i < 4; i++) spawnBall();
+  updateCounters();
+
+  let prevT = performance.now();
+  function animate(now) {
+    requestAnimationFrame(animate);
+    const dt = Math.min((now - prevT) / 1000, 0.05);
+    prevT = now;
+    resize();
+
+    // animar profundidad del pozo hacia el objetivo
+    A += (tA - A) * Math.min(dt * 4, 1);
+    W += (tW - W) * Math.min(dt * 4, 1);
+    updateGrid();
+    updateBodyVisual(dt);
+    stepParticles(dt);
+    stepClocks(dt);
+
+    if (!dragging) rotY += 0.05 * dt;
+    world.rotation.y = rotY;
+    camera.position.y = 10.5 + tilt * 14;
+    camera.lookAt(0, -2 - tilt * 3, 0);
+
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(animate);
+})();
+</script>
+
+</body>
+</html>
